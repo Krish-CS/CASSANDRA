@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cassandra - Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Poppins:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Animated Gradient Scrollbar */
+        @keyframes scrollGradient {
+            0% {
+                background-position: 0% 0%;
+            }
+
+            50% {
+                background-position: 0% 100%;
+            }
+
+            100% {
+                background-position: 0% 0%;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #ff9a9e 0%, #fecfef 50%, #ff9a9e 100%);
+            background-size: 100% 200%;
+            border-radius: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            animation: scrollGradient 3s ease infinite;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, #ff8a8e 0%, #febfdf 50%, #ff8a8e 100%);
+            background-size: 100% 200%;
+            animation: scrollGradient 2s ease infinite;
+        }
+
+        /* Firefox scrollbar */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #ff9a9e rgba(255, 255, 255, 0.3);
+        }
+
+        /* Browse Backgrounds Panel - enable scroll */
+        .template-expand-panel {
+            max-height: 300px;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+        }
+
+        .template-expand-panel.expanded {
+            max-height: 350px;
+        }
+
+        .template-image-grid {
+            overflow-y: auto;
+            overflow-x: hidden !important;
+            max-height: 280px;
+        }
+
+        /* Browse Backgrounds button font */
+        .template-expand-toggle {
+            font-family: 'Poppins', sans-serif !important;
+        }
+
+        /* User dropdown */
+        .nav-user {
+            position: relative;
+        }
+
+        .user-dropdown {
+            display: none;
+            position: absolute;
+            top: 60px;
+            /* Push below nav bar */
+            right: 0;
+            background: transparent;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            border-radius: 12px;
+            padding: 8px;
+            min-width: 150px;
+            box-shadow: none;
+            border: none;
+            z-index: 1000;
+        }
+
+        .nav-user span {
+            background: linear-gradient(to right, #e57373, #f06292);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .user-dropdown.show {
+            display: block;
+        }
+
+        .user-dropdown a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 20px;
+            color: #e57373;
+            /* Theme Pink */
+            text-decoration: none;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 600;
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.3));
+            /* Stronger glaze */
+            border-radius: 8px;
+            margin: 0;
+            transition: all 0.3s ease;
+        }
+
+        .user-dropdown a:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(229, 115, 115, 0.2);
+        }
+
+
+
+        .user-avatar {
+            cursor: pointer;
+        }
+
+        /* Loading Overlay (Added for Flash Mode) */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .loading-overlay i {
+            font-size: 4rem;
+            color: #ff9a9e;
+        }
+
+        .loading-overlay p {
+            color: #d66d75;
+            font-weight: 600;
+            font-size: 1.4rem;
+        }
+    </style>
+</head>
+
+
+<body>
+    <div class="background-container">
+        <video autoplay muted loop playsinline class="bg-video"
+            poster="{{ url_for('static', filename='img/pink_feather_background.png') }}">
+            <source src="{{ url_for('static', filename='vid/cassandra_video.mp4') }}" type="video/mp4">
+            <img src="{{ url_for('static', filename='img/pink_feather_background.png') }}" alt="Background"
+                class="bg-img">
+        </video>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="glass-nav">
+        <div class="nav-brand" style="display: flex; align-items: center; gap: 10px;">
+            Cassandra
+            <img src="{{ url_for('static', filename='img/cs_logo.png') }}" alt="CS Logo" style="height: 45px;">
+            <span style="font-size: 1rem; color: #d66d75; font-weight: 500; margin-left: 8px;">&copy; 2026 Krish
+                Cassandra</span>
+        </div>
+        <div class="nav-user">
+            <span>Welcome, CASSANDRIAN</span>
+            <div style="position: relative;">
+                <div class="user-avatar" onclick="toggleUserDropdown()">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="user-dropdown" id="userDropdown">
+                    <a href="#" onclick="doLogout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                </div>
+            </div>
+
+        </div>
+    </nav>
+
+    <div class="dashboard-container">
+        <div class="hero-section">
+            <h1>Create Stunning Presentations with Cassandra</h1>
+            <p>Enter your topic, choose a style, and let Cassandra do the rest.</p>
+        </div>
+
+        <div class="main-glass-card">
+
+            <form id="generate-form" class="generate-form">
+                <!-- Topic Input -->
+                <div class="form-section">
+                    <label class="section-label">1. What is your topic?</label>
+                    <div class="input-group large-input">
+                        <i class="fas fa-magic input-icon"></i>
+                        <input type="text" id="topicInput" placeholder="e.g., The Future of AI in Healthcare" required>
+                    </div>
+                </div>
+
+                <!-- Template Selection -->
+                <div class="form-section">
+                    <label class="section-label">2. Choose a Template Background</label>
+
+                    <!-- Horizontal Category Navigation -->
+                    <div class="template-nav-container">
+                        <!-- Left Arrow -->
+                        <button type="button" class="nav-arrow nav-arrow-left disabled" id="navArrowLeft">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+
+                        <!-- Scrollable Category List -->
+                        <div class="template-category-scroll" id="categoryScroll">
+                            <div class="template-categories" id="categoryList">
+                                <!-- Default (first, selected by default) -->
+                                <button type="button" class="category-btn active" data-query="default"
+                                    data-type="default">Default</button>
+
+                                <!-- Colors -->
+                                <button type="button" class="category-btn" data-query="pink"
+                                    data-type="color">Pink</button>
+                                <button type="button" class="category-btn" data-query="blue"
+                                    data-type="color">Blue</button>
+                                <button type="button" class="category-btn" data-query="violet"
+                                    data-type="color">Violet</button>
+                                <button type="button" class="category-btn" data-query="green"
+                                    data-type="color">Green</button>
+                                <button type="button" class="category-btn" data-query="orange"
+                                    data-type="color">Orange</button>
+                                <button type="button" class="category-btn" data-query="red"
+                                    data-type="color">Red</button>
+                                <button type="button" class="category-btn" data-query="yellow"
+                                    data-type="color">Yellow</button>
+                                <button type="button" class="category-btn" data-query="turquoise"
+                                    data-type="color">Turquoise</button>
+                                <button type="button" class="category-btn" data-query="white"
+                                    data-type="color">White</button>
+                                <button type="button" class="category-btn" data-query="black"
+                                    data-type="color">Black</button>
+
+                                <!-- Themes -->
+                                <button type="button" class="category-btn" data-query="nature landscape"
+                                    data-type="theme">Nature</button>
+                                <button type="button" class="category-btn" data-query="education classroom"
+                                    data-type="theme">Education</button>
+                                <button type="button" class="category-btn" data-query="technology abstract"
+                                    data-type="theme">Technology</button>
+                                <button type="button" class="category-btn" data-query="business office"
+                                    data-type="theme">Business</button>
+                                <button type="button" class="category-btn" data-query="medical health"
+                                    data-type="theme">Medical</button>
+                                <button type="button" class="category-btn" data-query="space galaxy"
+                                    data-type="theme">Space</button>
+                                <button type="button" class="category-btn" data-query="minimal simple"
+                                    data-type="theme">Minimal</button>
+                                <button type="button" class="category-btn" data-query="gradient abstract"
+                                    data-type="theme">Gradient</button>
+                                <button type="button" class="category-btn" data-query="texture pattern"
+                                    data-type="theme">Texture</button>
+                            </div>
+                        </div>
+
+                        <!-- Right Arrow -->
+                        <button type="button" class="nav-arrow nav-arrow-right" id="navArrowRight">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+
+                        <!-- Search Bar -->
+                        <div class="template-search-box">
+                            <input type="text" id="templateSearchInput" placeholder="Search...">
+                            <button type="button" class="search-clear-btn" id="searchClearBtn" style="display: none;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Expand/Collapse Toggle -->
+                    <button type="button" class="template-expand-toggle" id="templateToggle">
+                        <span>Browse Backgrounds</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+
+                    <!-- Expandable Panel with Images -->
+                    <div class="template-expand-panel" id="templatePanel">
+                        <div class="template-loading" id="templateLoading" style="display: none;">
+                            <i class="fas fa-circle-notch fa-spin"></i> Loading backgrounds...
+                        </div>
+                        <div class="template-image-grid" id="templateGrid">
+                            <p class="no-templates">Default selected. No background image will be applied.</p>
+                        </div>
+                    </div>
+
+                    <!-- Selected Template Preview -->
+                    <div class="selected-template-preview" id="selectedPreview" style="display: none;">
+                        <img id="selectedImage" src="" alt="Selected background">
+                        <span id="selectedName">Selected: None</span>
+                        <button type="button" class="clear-selection" onclick="clearTemplateSelection()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <!-- Hidden input to store selected template URL -->
+                    <input type="hidden" id="selectedTemplateUrl" name="templateUrl" value="">
+                </div>
+
+                <!-- Mode Selection -->
+                <div class="form-section">
+                    <label class="section-label">3. Select Mode</label>
+                    <div class="mode-selection">
+                        <label class="mode-card">
+                            <input type="radio" name="mode" value="flash" checked>
+                            <div class="mode-content">
+                                <div class="icon-box"><i class="fas fa-bolt"></i></div>
+                                <h3>Flash Mode</h3>
+                                <p>Auto-generate everything. Best for quick results.</p>
+                            </div>
+                        </label>
+                        <label class="mode-card">
+                            <input type="radio" name="mode" value="decide">
+                            <div class="mode-content">
+                                <div class="icon-box"><i class="fas fa-brain"></i></div>
+                                <h3>Decide Mode</h3>
+                                <p>Review topics and structure before generating.</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="action-area">
+                    <button type="button" class="generate-btn" onclick="generatePPT()">
+                        Generate Presentation
+                        <i class="fas fa-wand-magic-sparkles"></i>
+                    </button>
+                    <!-- Loading State -->
+                    <div id="loading" class="loading-spinner" style="display: none;">
+                        <i class="fas fa-circle-notch fa-spin"></i> Generating...
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Simple Script for interaction -->
+    <!-- Full-screen Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <i class="fas fa-circle-notch fa-spin"></i>
+        <p>Generating Slides...</p>
+    </div>
+
+
+
+    <script>
+        // State
+        let selectedTemplateUrl = '';
+        let selectedCategory = 'default';
+        let isPanelOpen = false;
+
+        // Toggle user dropdown
+        function toggleUserDropdown() {
+            const dropdown = document.getElementById('userDropdown');
+            dropdown.classList.toggle('show');
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('userDropdown');
+            const avatar = document.querySelector('.user-avatar');
+            if (dropdown && avatar && !avatar.contains(e.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
+
+        // Logout function - clear localStorage and redirect
+        function doLogout() {
+            localStorage.removeItem('cassandra_username');
+            window.location.href = '/logout';
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set username
+            const userName = localStorage.getItem('cassandra_username') || "CASSANDRIAN";
+            const userSpan = document.querySelector('.nav-user span');
+            if (userSpan) {
+                userSpan.textContent = `Welcome, ${userName}`;
+            }
+
+            // Setup category navigation
+            setupCategoryNavigation();
+
+            // Setup arrow buttons
+            setupArrowNavigation();
+
+            // Setup search bar
+            setupSearchBar();
+
+            // Setup expand toggle
+            setupExpandToggle();
+
+            // Don't load templates initially (Default = no background needed)
+        });
+
+        // Reset UI on page show (handles Back button from Thank You page)
+        window.addEventListener('pageshow', function (event) {
+            // Force hide loading overlay
+            document.getElementById('loadingOverlay').classList.remove('active');
+
+            // Re-enable/Show generation button if needed
+            const genBtn = document.querySelector('.generate-btn');
+            if (genBtn) genBtn.style.display = 'block';
+
+            // Hide specific loading spinner if visible
+            const spinner = document.getElementById('loading');
+            if (spinner) spinner.style.display = 'none';
+        });
+
+        function setupCategoryNavigation() {
+            const categoryBtns = document.querySelectorAll('.category-btn');
+            categoryBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // Remove active from all
+                    categoryBtns.forEach(b => b.classList.remove('active'));
+                    // Add active to clicked
+                    btn.classList.add('active');
+
+                    // Get query and type
+                    const query = btn.dataset.query;
+                    const type = btn.dataset.type;
+                    selectedCategory = query;
+
+                    // If default, clear templates
+                    if (type === 'default') {
+                        clearTemplateGrid();
+                        return;
+                    }
+
+                    // Load templates based on type
+                    if (type === 'color') {
+                        loadTemplatesByColor(query);
+                    } else {
+                        loadTemplatesByQuery(query);
+                    }
+
+                    // Auto-expand the panel
+                    expandPanel();
+                });
+            });
+        }
+
+        function setupArrowNavigation() {
+            const scrollContainer = document.getElementById('categoryScroll');
+            const leftArrow = document.getElementById('navArrowLeft');
+            const rightArrow = document.getElementById('navArrowRight');
+
+            const scrollAmount = 200;
+
+            // Update arrow states
+            function updateArrowStates() {
+                const maxScroll = scrollContainer.scrollWidth - scrollContainer.clientWidth;
+                const currentScroll = scrollContainer.scrollLeft;
+
+                // Left arrow disabled at start
+                if (currentScroll <= 0) {
+                    leftArrow.classList.add('disabled');
+                } else {
+                    leftArrow.classList.remove('disabled');
+                }
+
+                // Right arrow disabled at end
+                if (currentScroll >= maxScroll - 5) {
+                    rightArrow.classList.add('disabled');
+                } else {
+                    rightArrow.classList.remove('disabled');
+                }
+            }
+
+            leftArrow.addEventListener('click', () => {
+                scrollContainer.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+                setTimeout(updateArrowStates, 300);
+            });
+
+            rightArrow.addEventListener('click', () => {
+                scrollContainer.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+                setTimeout(updateArrowStates, 300);
+            });
+
+            scrollContainer.addEventListener('scroll', updateArrowStates);
+
+            // Initial state
+            updateArrowStates();
+        }
+
+        function setupSearchBar() {
+            const searchInput = document.getElementById('templateSearchInput');
+            const clearBtn = document.getElementById('searchClearBtn');
+
+            let searchTimeout;
+
+            searchInput.addEventListener('input', () => {
+                const query = searchInput.value.trim();
+
+                // Show/hide clear button
+                clearBtn.style.display = query ? 'flex' : 'none';
+
+                // Debounce search
+                clearTimeout(searchTimeout);
+                if (query.length >= 2) {
+                    searchTimeout = setTimeout(() => {
+                        // Remove active from category buttons
+                        document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
+                        loadTemplatesByQuery(query);
+                        expandPanel();  // Auto-expand on search
+                    }, 500);
+                }
+            });
+
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    const query = searchInput.value.trim();
+                    if (query) {
+                        document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
+                        loadTemplatesByQuery(query);
+                        expandPanel();  // Auto-expand on search
+                    }
+                }
+            });
+
+            clearBtn.addEventListener('click', () => {
+                searchInput.value = '';
+                clearBtn.style.display = 'none';
+                // Re-select Default
+                const defaultBtn = document.querySelector('.category-btn[data-type="default"]');
+                if (defaultBtn) {
+                    defaultBtn.click();
+                }
+            });
+        }
+
+        function setupExpandToggle() {
+            const toggle = document.getElementById('templateToggle');
+            const panel = document.getElementById('templatePanel');
+
+            toggle.addEventListener('click', () => {
+                isPanelOpen = !isPanelOpen;
+                panel.classList.toggle('expanded', isPanelOpen);
+                toggle.classList.toggle('expanded', isPanelOpen);
+
+                // Update icon
+                const icon = toggle.querySelector('i');
+                icon.className = isPanelOpen ? 'fas fa-chevron-up' : 'fas fa-chevron-down';
+            });
+        }
+
+        // Helper function to expand panel programmatically
+        function expandPanel() {
+            if (!isPanelOpen) {
+                isPanelOpen = true;
+                const panel = document.getElementById('templatePanel');
+                const toggle = document.getElementById('templateToggle');
+                panel.classList.add('expanded');
+                toggle.classList.add('expanded');
+                const icon = toggle.querySelector('i');
+                icon.className = 'fas fa-chevron-up';
+            }
+        }
+
+        function clearTemplateGrid() {
+            const grid = document.getElementById('templateGrid');
+            grid.innerHTML = '<p class="no-templates">Default selected. No background image will be applied.</p>';
+            document.getElementById('templateLoading').style.display = 'none';
+        }
+
+        async function loadTemplatesByColor(color) {
+            const loading = document.getElementById('templateLoading');
+            const grid = document.getElementById('templateGrid');
+
+            loading.style.display = 'flex';
+            grid.innerHTML = '';
+
+            try {
+                const response = await fetch(`/api/templates?color=${color}&count=30`);
+                const data = await response.json();
+
+                loading.style.display = 'none';
+
+                if (data.success && data.templates.length > 0) {
+                    data.templates.forEach(template => {
+                        const card = createTemplateCard(template);
+                        grid.appendChild(card);
+                    });
+                } else {
+                    grid.innerHTML = '<p class="no-templates">No backgrounds found. Try another category.</p>';
+                }
+            } catch (error) {
+                console.error('Error loading templates:', error);
+                loading.style.display = 'none';
+                grid.innerHTML = '<p class="no-templates">Failed to load backgrounds.</p>';
+            }
+        }
+
+        async function loadTemplatesByQuery(query) {
+            const loading = document.getElementById('templateLoading');
+            const grid = document.getElementById('templateGrid');
+
+            loading.style.display = 'flex';
+            grid.innerHTML = '';
+
+            try {
+                const response = await fetch(`/api/templates?query=${encodeURIComponent(query)}&count=30`);
+                const data = await response.json();
+
+                loading.style.display = 'none';
+
+                if (data.success && data.templates.length > 0) {
+                    data.templates.forEach(template => {
+                        const card = createTemplateCard(template);
+                        grid.appendChild(card);
+                    });
+                } else {
+                    grid.innerHTML = '<p class="no-templates">No backgrounds found. Try another search.</p>';
+                }
+            } catch (error) {
+                console.error('Error loading templates:', error);
+                loading.style.display = 'none';
+                grid.innerHTML = '<p class="no-templates">Failed to load backgrounds.</p>';
+            }
+        }
+
+        function createTemplateCard(template) {
+            const card = document.createElement('div');
+            card.className = 'template-image-card';
+            card.dataset.id = template.id;
+            card.dataset.url = template.url;
+
+            card.innerHTML = `
+                <img src="${template.thumb_url}" alt="${template.alt}" loading="lazy">
+                <div class="card-overlay">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+            `;
+
+            card.addEventListener('click', () => selectTemplate(template, card));
+
+            return card;
+        }
+
+        function selectTemplate(template, card) {
+            // Remove selection from all cards
+            document.querySelectorAll('.template-image-card').forEach(c => {
+                c.classList.remove('selected');
+            });
+
+            // Add selection to clicked card
+            card.classList.add('selected');
+
+            // Store URL
+            selectedTemplateUrl = template.url;
+            document.getElementById('selectedTemplateUrl').value = template.url;
+
+            // Show preview
+            const preview = document.getElementById('selectedPreview');
+            const previewImg = document.getElementById('selectedImage');
+            const previewName = document.getElementById('selectedName');
+
+            previewImg.src = template.thumb_url;
+            previewName.textContent = `By ${template.photographer}`;
+            preview.style.display = 'flex';
+        }
+
+        function clearTemplateSelection() {
+            selectedTemplateUrl = '';
+            document.getElementById('selectedTemplateUrl').value = '';
+            document.getElementById('selectedPreview').style.display = 'none';
+            document.querySelectorAll('.template-image-card').forEach(c => {
+                c.classList.remove('selected');
+            });
+        }
+
+        function generatePPT() {
+            const topic = document.getElementById('topicInput').value;
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+
+            if (!topic) {
+                alert("Please enter a topic!");
+                return;
+            }
+
+            // Show loading (Full Screen)
+            document.getElementById('loadingOverlay').classList.add('active');
+            // document.querySelector('.generate-btn').style.display = 'none';
+
+            if (mode === 'flash') {
+                // Flash Mode: Generate PPT directly, download, and redirect to thank you page
+                fetch('/api/generate-ppt', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        topic: topic,
+                        template: selectedCategory,
+                        templateUrl: selectedTemplateUrl,
+                        mode: 'flash'
+                    })
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.json().then(err => { throw new Error(err.error || 'Generation failed'); });
+                        }
+                        return response.blob();
+                    })
+                    .then(blob => {
+                        // Download the file
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `cassandra_${topic.replace(/\s+/g, '_')}.pptx`;
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                        a.remove();
+
+                        // Redirect to thank you page
+                        setTimeout(() => {
+                            window.location.href = '/thank-you';
+                        }, 500);
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Error generating presentation: ' + error.message);
+                        document.getElementById('loadingOverlay').classList.remove('active');
+                        document.querySelector('.generate-btn').style.display = 'block';
+                        // document.getElementById('loading').style.display = 'none';
+                    });
+            } else {
+                // Decide Mode: Show Title Selection Modal
+                showDecideModal();
+            }
+        }
+
+        // ==========================================
+        // DECIDE MODE MODAL LOGIC
+        // ==========================================
+        let currentDecideTopic = '';
+
+        function showDecideModal() {
+            const topic = document.getElementById('topicInput').value.trim();
+            currentDecideTopic = topic;
+
+            const modal = document.getElementById('decideTitleModal');
+            modal.classList.add('active');
+
+            // Reset view
+            resetDecideModal();
+        }
+
+        function resetDecideModal() {
+            document.getElementById('decideOptions').style.display = 'flex';
+            document.getElementById('customTitleInputSection').style.display = 'none';
+        }
+
+        let currentDecideSource = 'cassandra'; // 'cassandra' or 'user'
+
+        function proceedCassandraWay() {
+            // Standard Flow (AI Generates Titles) - Now ask for Content Mode
+            currentDecideSource = 'cassandra';
+
+            // Show Content Mode Selection
+            document.getElementById('decideTitleModal').classList.remove('active');
+            document.getElementById('contentModeModal').classList.add('active');
+        }
+
+        // This is for Cassandra Way (Auto Titles) - Update to ask for Content Mode too?
+        // The user request said "after the popup of slides typing", implying this is mainly for "Create with Mine".
+        // However, it says "decide mode in PPT generation", which could imply both paths.
+        // Let's safe-guard and ask for content mode for Cassandra Way too if needed, 
+        // but the prompt specifically mentioned "after the popup of slides typing another popup must come".
+        // "Create with Mine" HAS a typing popup. "Cassandra Way" does not.
+        // So I will apply this ONLY to the user-entered titles path as requested.
+
+        let userTitles = [];
+
+        function showTitleInput() {
+            document.getElementById('decideOptions').style.display = 'none';
+            document.getElementById('customTitleInputSection').style.display = 'block';
+            document.getElementById('userTitlesInput').focus();
+            renderSlideList();
+        }
+
+        function handleTitleKeydown(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                processInput();
+            }
+        }
+
+        function processInput() {
+            const input = document.getElementById('userTitlesInput');
+            const text = input.value;
+            if (text && text.trim()) {
+                processText(text);
+                input.value = '';
+            }
+        }
+
+        function handleTitlePaste(event) {
+            event.preventDefault();
+            const pasteIdx = (event.clipboardData || window.clipboardData).getData('text');
+            processText(pasteIdx);
+        }
+
+        function processText(rawText) {
+            // Split by newlines, clean, and filter
+            const lines = rawText.split(/\n+/).map(t => t.trim()).filter(t => t.length > 0);
+
+            if (lines.length > 0) {
+                // Add new titles
+                userTitles = [...userTitles, ...lines];
+                renderSlideList();
+
+                // Scroll to bottom
+                const container = document.getElementById('slideListContainer');
+                setTimeout(() => container.scrollTop = container.scrollHeight, 10);
+            }
+        }
+
+        function renderSlideList() {
+            const container = document.getElementById('slideListContainer');
+            container.innerHTML = '';
+
+            userTitles.forEach((title, index) => {
+                const item = document.createElement('div');
+                item.className = 'slide-list-item';
+                item.style.cssText = `
+                    background: rgba(255, 154, 158, 0.2);
+                    border: 1px solid #ff9a9e;
+                    border-radius: 10px;
+                    padding: 10px 15px;
+                    color: #d66d75;
+                    font-weight: 500;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    animation: fadeIn 0.3s ease;
+                `;
+
+                item.innerHTML = `
+                    <span style="font-weight: bold; opacity: 0.7;">SLIDE ${index + 1}</span>
+                    <span style="flex: 1;">${title}</span>
+                    <i class="fas fa-times" onclick="removeTitle(${index})" style="cursor: pointer; opacity: 0.6;"></i>
+                `;
+
+                container.appendChild(item);
+            });
+        }
+
+        function removeTitle(index) {
+            userTitles.splice(index, 1);
+            renderSlideList();
+        }
+
+        function submitUserTitles() {
+            if (userTitles.length === 0) {
+                alert("Please enter at least one topic.");
+                return;
+            }
+
+            // Store titles in sessionStorage to pass to preview page
+            sessionStorage.setItem('cassandra_user_titles', JSON.stringify(userTitles));
+
+            currentDecideSource = 'user';
+
+            // Show Content Mode Selection
+            document.getElementById('customTitleInputSection').style.display = 'none'; // Hide input section cleanly
+            document.getElementById('decideTitleModal').classList.remove('active');
+            document.getElementById('contentModeModal').classList.add('active');
+        }
+
+        function selectContentMode(mode) {
+            // Redirect with source flag and content_mode
+            const params = new URLSearchParams({
+                topic: currentDecideTopic,
+                template: selectedCategory,
+                templateUrl: selectedTemplateUrl,
+                mode: 'decide',
+                source: currentDecideSource,
+                content_mode: mode
+            });
+            window.location.href = `/preview?${params.toString()}`;
+        }
+
+
+        // ==========================================
+        // FLASH MODE GENERATION (Existing Logic)
+        // ==========================================
+        function triggerFlashGeneration(topic) {
+            // Show loading (Full Screen)
+            document.getElementById('loadingOverlay').classList.add('active');
+
+            // Flash Mode: Generate PPT directly
+            fetch('/api/generate-ppt', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    topic: topic,
+                    template: selectedCategory,
+                    templateUrl: selectedTemplateUrl,
+                    mode: 'flash'
+                })
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => { throw new Error(err.error || 'Generation failed'); });
+                    }
+                    return response.blob();
+                })
+                .then(blob => {
+                    // Download the file
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `cassandra_${topic.replace(/\s+/g, '_')}.pptx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+
+                    // Redirect to thank you page
+                    setTimeout(() => {
+                        window.location.href = '/thank-you';
+                    }, 500);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error generating presentation: ' + error.message);
+                    document.getElementById('loadingOverlay').classList.remove('active');
+                });
+        }
+    </script>
+
+    <!-- Audio Player -->
+    <audio id="bgAudio" loop>
+        <source src="{{ url_for('static', filename='audio/cassandra_bg.mp3') }}" type="audio/mpeg">
+    </audio>
+
+    <div class="audio-control" id="audioControl" onclick="toggleAudio()">
+        <i class="fas fa-volume-up"></i>
+    </div>
+
+    <style>
+        .audio-control {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 10001;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            color: #d66d75;
+        }
+
+        .audio-control:hover {
+            transform: scale(1.1);
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Shared Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 240, 245, 0.5);
+            backdrop-filter: blur(5px);
+            z-index: 10000;
+            display: none;
+            /* Hidden by default */
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-content {
+            /* Glass card styles matching global theme */
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+
+    <script>
+        (function () {
+            const audio = document.getElementById('bgAudio');
+            const btn = document.getElementById('audioControl');
+            const icon = btn.querySelector('i');
+
+            // 1. Immediate State Restoration
+            const isMuted = localStorage.getItem('cassandra_audio_muted') === 'true';
+            const savedTime = parseFloat(localStorage.getItem('cassandra_audio_time')) || 0;
+
+            if (savedTime) audio.currentTime = savedTime;
+            audio.muted = isMuted;
+            updateIcon(); // Initial icon state
+
+            // 2. Play Function with Retry
+            function attemptPlay() {
+                const playPromise = audio.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        console.warn("Autoplay / Resume blocked:", error);
+                        // Unlock on ANY interaction
+                        const unlock = () => {
+                            audio.play();
+                            document.removeEventListener('click', unlock);
+                            document.removeEventListener('touchstart', unlock);
+                            document.removeEventListener('keydown', unlock);
+                        };
+                        document.addEventListener('click', unlock, { once: true });
+                        document.addEventListener('touchstart', unlock, { once: true });
+                        document.addEventListener('keydown', unlock, { once: true });
+                    });
+                }
+            }
+
+            // Try to play immediately
+            if (!audio.paused) return; // Already playing
+            attemptPlay();
+
+            // 3. Persistence
+            window.addEventListener('beforeunload', () => {
+                localStorage.setItem('cassandra_audio_time', audio.currentTime);
+            });
+
+            // Save frequently in case of crash/unexpected close
+            setInterval(() => {
+                if (!audio.paused) {
+                    localStorage.setItem('cassandra_audio_time', audio.currentTime);
+                }
+            }, 1000);
+
+            // 4. Bfcache / Back Button Support
+            window.addEventListener('pageshow', (event) => {
+                if (event.persisted) {
+                    // Page restored from cache
+                    const reTime = parseFloat(localStorage.getItem('cassandra_audio_time')) || 0;
+                    if (reTime) audio.currentTime = reTime;
+                    attemptPlay();
+                }
+
+                // FORCE Close Modal on Restore (Bfcache/Back Button)
+                setTimeout(() => {
+                    const decideModal = document.getElementById('decideTitleModal');
+                    if (decideModal) {
+                        decideModal.classList.remove('active');
+                        decideModal.style.display = 'none'; // Force hide
+
+                        // Reset style after delay to allow future flex display
+                        setTimeout(() => decideModal.style.display = '', 100);
+                    }
+
+                    const overlay = document.getElementById('loadingOverlay');
+                    if (overlay) overlay.classList.remove('active');
+                }, 10);
+
+                // Re-enable/Show generation button if needed
+                const genBtn = document.querySelector('.generate-btn');
+                if (genBtn) genBtn.style.display = 'block';
+
+                // Hide specific loading spinner if visible
+                const spinner = document.getElementById('loading');
+                if (spinner) spinner.style.display = 'none';
+            });
+
+            // 5. Controls
+            window.toggleAudio = function () {
+                audio.muted = !audio.muted;
+                localStorage.setItem('cassandra_audio_muted', audio.muted);
+                updateIcon();
+            }
+
+            function updateIcon() {
+                if (audio.muted) {
+                    icon.className = 'fas fa-volume-mute';
+                    btn.style.background = 'rgba(255, 255, 255, 0.1)';
+                } else {
+                    icon.className = 'fas fa-volume-up';
+                    btn.style.background = 'rgba(255, 255, 255, 0.25)';
+                }
+            }
+        })();
+    </script>
+
+    <!-- Decide Mode Custom Titles Modal -->
+    <div id="decideTitleModal" class="modal-overlay">
+        <div class="glass-card modal-content" style="width: 90%; max-width: 550px; padding: 40px; text-align: center;">
+            <div
+                style="width: 60px; height: 60px; background: rgba(255, 154, 158, 0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                <i class="fas fa-list-ol" style="color: #ff758c; font-size: 1.5rem;"></i>
+            </div>
+
+            <h2 style="color: #d66d75; margin-bottom: 20px; font-family: 'Poppins', sans-serif;">
+                Having
+                Topic Titles?</h2>
+            <p style="color: #7a4a4f; margin-bottom: 30px; line-height: 1.6;">
+                If you already have a list of titles, paste them below. <br>
+                Cassandra will generate content for exactly those slides!
+            </p>
+
+            <!-- Buttons Section -->
+            <div id="decideOptions" style="display: flex; justify-content: center; gap: 20px;">
+                <button onclick="proceedCassandraWay()"
+                    style="padding: 12px 30px; border-radius: 50px; border: 1px solid #d66d75; background: transparent; color: #d66d75; cursor: pointer; transition: all 0.3s; font-weight: 500;">
+                    Cassandra Way
+                </button>
+                <button onclick="showTitleInput()"
+                    style="padding: 12px 30px; border-radius: 50px; border: none; background: linear-gradient(to right, #ff9a9e, #fad0c4); color: white; font-weight: 600; cursor: pointer; box-shadow: 0 4px 15px rgba(255, 154, 158, 0.4); transition: transform 0.2s;">
+                    Create with Mine
+                </button>
+            </div>
+
+            <!-- Custom Input Section (Hidden initially) -->
+            <div id="customTitleInputSection" style="display: none; margin-top: 20px; text-align: left;">
+                <label
+                    style="display: block; color: #7a4a4f; margin-bottom: 12px; font-size: 0.95rem; font-weight: 500;">
+                    Type your topic one by one and press Enter:
+                </label>
+
+                <!-- Dynamic List Container -->
+                <div id="slideListContainer" style="
+                    max-height: 300px;
+                    overflow-y: auto;
+                    margin-bottom: 20px;
+                    padding-right: 5px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                ">
+                    <!-- Slides will appear here -->
+                </div>
+
+                <!-- Input Field -->
+                <div class="input-group" style="margin-bottom: 0;">
+                    <input type="text" id="userTitlesInput"
+                        placeholder="Type a topic and press Enter (or paste your list here)..."
+                        style="width: 100%; padding: 15px; border-radius: 50px; border: 1px solid rgba(255,255,255,0.4); background: rgba(255,255,255,0.2); color: #7a4a4f; font-family: 'Poppins', sans-serif; font-size: 1rem; outline: none;"
+                        onkeydown="handleTitleKeydown(event)" onpaste="handleTitlePaste(event)">
+                </div>
+
+                <div style="margin-top: 30px; display: flex; gap: 15px; justify-content: center;">
+                    <button onclick="resetDecideModal()"
+                        style="padding: 12px 30px; border-radius: 50px; border: 1px solid #d66d75; background: transparent; color: #d66d75; cursor: pointer; transition: all 0.3s;">Back</button>
+                    <button onclick="submitUserTitles()"
+                        style="padding: 12px 40px; border-radius: 50px; border: none; background: linear-gradient(to right, #ff9a9e, #fad0c4); color: white; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(255, 154, 158, 0.4);">
+                        Generate PPT
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Content Mode Selection Modal -->
+    <div id="contentModeModal" class="modal-overlay">
+        <div class="glass-card modal-content" style="width: 90%; max-width: 650px; padding: 40px; text-align: center;">
+            <div
+                style="width: 60px; height: 60px; background: rgba(255, 154, 158, 0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                <i class="fas fa-layer-group" style="color: #ff758c; font-size: 1.5rem;"></i>
+            </div>
+
+            <h2 style="color: #d66d75; margin-bottom: 20px; font-family: 'Poppins', sans-serif;">
+                Choose Content Style</h2>
+            <p style="color: #7a4a4f; margin-bottom: 30px; line-height: 1.6;">
+                How would you like your slide content to be formatted?
+            </p>
+
+            <div style="display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;">
+                <!-- Cassandra Mode (Default) -->
+                <div class="mode-option" onclick="selectContentMode('cassandra')" style="cursor: pointer;">
+                    <div
+                        style="background: rgba(255,255,255,0.3); padding: 20px; border-radius: 20px; width: 160px; height: 160px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px solid transparent; transition: all 0.3s; position: relative;">
+                        <i class="fas fa-magic" style="font-size: 2.5rem; color: #ff9a9e; margin-bottom: 15px;"></i>
+                        <h3 style="color: #d66d75; font-size: 1.1rem; margin-bottom: 5px;">Cassandra</h3>
+                        <span style="font-size: 0.8rem; color: #7a4a4f;">Auto-detect style</span>
+                    </div>
+                </div>
+
+                <!-- Para Mode -->
+                <div class="mode-option" onclick="selectContentMode('para')" style="cursor: pointer;">
+                    <div
+                        style="background: rgba(255,255,255,0.3); padding: 20px; border-radius: 20px; width: 160px; height: 160px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px solid transparent; transition: all 0.3s;">
+                        <i class="fas fa-align-left"
+                            style="font-size: 2.5rem; color: #ff9a9e; margin-bottom: 15px;"></i>
+                        <h3 style="color: #d66d75; font-size: 1.1rem; margin-bottom: 5px;">Para Mode</h3>
+                        <span style="font-size: 0.8rem; color: #7a4a4f;">All Paragraphs</span>
+                    </div>
+                </div>
+
+                <!-- Point Mode -->
+                <div class="mode-option" onclick="selectContentMode('point')" style="cursor: pointer;">
+                    <div
+                        style="background: rgba(255,255,255,0.3); padding: 20px; border-radius: 20px; width: 160px; height: 160px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px solid transparent; transition: all 0.3s;">
+                        <i class="fas fa-list-ul" style="font-size: 2.5rem; color: #ff9a9e; margin-bottom: 15px;"></i>
+                        <h3 style="color: #d66d75; font-size: 1.1rem; margin-bottom: 5px;">Point Mode</h3>
+                        <span style="font-size: 0.8rem; color: #7a4a4f;">All Bullet Points</span>
+                    </div>
+                </div>
+            </div>
+
+            <style>
+                .mode-option:hover div {
+                    background: rgba(255, 255, 255, 0.5) !important;
+                    transform: translateY(-5px);
+                    box-shadow: 0 10px 20px rgba(255, 154, 158, 0.2);
+                    border-color: #ff9a9e !important;
+                }
+            </style>
+        </div>
+    </div>
+
+    <!-- Scripts for Logic are managed in main script block -->
+</body>
+
+</html>

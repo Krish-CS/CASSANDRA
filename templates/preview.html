@@ -1,0 +1,2389 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cassandra - Preview & Edit</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Poppins:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Animated Gradient Scrollbar */
+        @keyframes scrollGradient {
+            0% {
+                background-position: 0% 0%;
+            }
+
+            50% {
+                background-position: 0% 100%;
+            }
+
+            100% {
+                background-position: 0% 0%;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 0px;
+            /* Remove horizontal scrollbar */
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #ff9a9e 0%, #fecfef 50%, #ff9a9e 100%);
+            background-size: 100% 200%;
+            border-radius: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            animation: scrollGradient 3s ease infinite;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, #ff8a8e 0%, #febfdf 50%, #ff8a8e 100%);
+            background-size: 100% 200%;
+            animation: scrollGradient 2s ease infinite;
+        }
+
+        /* Firefox scrollbar */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #ff9a9e rgba(255, 255, 255, 0.3);
+        }
+
+        /* Hide horizontal scrollbar everywhere */
+        .template-grid,
+        .bullet-options,
+        .more-bullets,
+        .topic-list,
+        .options-sidebar {
+            overflow-x: hidden !important;
+        }
+
+        /* User dropdown for logout */
+        .nav-user {
+            position: relative;
+        }
+
+        .user-dropdown {
+            display: none;
+            position: absolute;
+            top: 60px;
+            /* Push below nav bar */
+            right: 0;
+            background: transparent;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            border-radius: 12px;
+            padding: 8px;
+            min-width: 150px;
+            box-shadow: none;
+            border: none;
+            z-index: 1000;
+        }
+
+        .nav-user span {
+            background: linear-gradient(to right, #e57373, #f06292);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .user-dropdown.show {
+            display: block;
+        }
+
+        .user-dropdown a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 20px;
+            color: #e57373;
+            /* Theme Pink */
+            text-decoration: none;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 600;
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.3));
+            /* Stronger glaze */
+            border-radius: 8px;
+            margin: 0;
+            transition: all 0.3s ease;
+        }
+
+        .user-dropdown a:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(229, 115, 115, 0.2);
+        }
+
+
+
+        .user-avatar {
+            cursor: pointer;
+        }
+
+        .preview-layout {
+            display: flex;
+            height: calc(100vh - 80px);
+            margin-top: 80px;
+            padding: 20px;
+            gap: 20px;
+        }
+
+
+        /* Left Sidebar - Slide List */
+        .slide-sidebar {
+            width: 260px;
+            min-width: 260px;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(15px);
+            border-radius: 20px;
+            padding: 15px;
+            border: 1px solid var(--glass-border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            margin-bottom: 12px;
+        }
+
+        .sidebar-header h2 {
+            font-size: 1rem;
+            color: #d66d75;
+            margin-bottom: 4px;
+        }
+
+        .sidebar-header p {
+            font-size: 0.75rem;
+            color: #7a4a4f;
+            opacity: 0.8;
+        }
+
+        .topic-list {
+            list-style: none;
+            flex: 1;
+            overflow-y: auto;
+            max-height: calc(100vh - 320px);
+        }
+
+        .topic-item {
+            background: rgba(255, 255, 255, 0.3);
+            margin-bottom: 5px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: #7a4a4f;
+        }
+
+        .topic-item:hover {
+            background: rgba(255, 255, 255, 0.6);
+        }
+
+        .topic-item.active {
+            background: linear-gradient(90deg, #ff9a9e 0%, #fecfef 100%);
+            color: white;
+        }
+
+        .topic-item .slide-num {
+            width: 20px;
+            height: 20px;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65rem;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .topic-item.active .slide-num {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Download Section at Bottom of Left Sidebar */
+        .download-section {
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
+            margin-top: auto;
+        }
+
+        .download-btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 50px;
+            background: linear-gradient(90deg, #ff7eb3 0%, #ff758c 100%);
+            /* Charmer Gradient */
+            color: white;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 154, 158, 0.4);
+            filter: brightness(1.1);
+            /* Subtle color shift */
+        }
+
+        /* Main Stage - Slide Preview (FIXED SIZE) */
+        .slide-stage {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-width: 0;
+        }
+
+        .slide-canvas {
+            width: 800px;
+            height: 450px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            padding: 25px 30px;
+            display: flex;
+            flex-direction: column;
+            font-family: 'Times New Roman', Times, serif;
+            position: relative;
+            background-size: cover;
+            background-position: center;
+            overflow: hidden;
+        }
+
+        /* Glaze Effect Text Boxes */
+        .slide-title {
+            font-size: 1.6rem;
+            color: #000;
+            margin-bottom: 12px;
+            outline: none;
+            border: 2px solid transparent;
+            padding: 10px 15px;
+            border-radius: 8px;
+            transition: border-color 0.3s;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            text-align: center;
+            font-weight: bold;
+            font-family: 'Times New Roman', Times, serif;
+        }
+
+        .slide-title:focus {
+            border-color: var(--primary-pink);
+        }
+
+        .slide-content {
+            font-size: 1.1rem;
+            color: #000;
+            outline: none;
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            transition: border-color 0.3s;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            text-align: justify;
+            line-height: 2;
+            overflow-y: auto;
+            font-family: 'Times New Roman', Times, serif;
+        }
+
+        .slide-content:focus {
+            border-color: var(--primary-pink);
+        }
+
+        .slide-controls {
+            margin-top: 12px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .control-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 50px;
+            background: rgba(255, 255, 255, 0.8);
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            color: var(--dark-pink);
+            font-size: 0.85rem;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .control-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: rgba(255, 255, 255, 0.4);
+            box-shadow: none;
+        }
+
+        .control-btn:not(:disabled):hover {
+            background: white;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .control-btn.primary {
+            background: linear-gradient(90deg, #ff7eb3 0%, #ff758c 100%);
+            /* Charmer Gradient */
+            color: white;
+        }
+
+        .control-btn.primary:hover {
+            background: linear-gradient(90deg, #ff7eb3 0%, #ff758c 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 154, 158, 0.6);
+            filter: brightness(1.1);
+            /* Subtle color shift */
+        }
+
+        .slide-counter {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #d66d75;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .edit-note {
+            margin-top: 8px;
+            font-size: 0.75rem;
+            color: #888;
+            text-align: center;
+        }
+
+        /* Right Sidebar - Template & Options */
+        .options-sidebar {
+            width: 280px;
+            min-width: 280px;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(15px);
+            border-radius: 20px;
+            padding: 15px;
+            border: 1px solid var(--glass-border);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .options-sidebar h3 {
+            font-size: 0.95rem;
+            color: #d66d75;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Selected Template Preview */
+        .selected-template-box {
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 10px;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255, 154, 158, 0.3);
+        }
+
+        .selected-template-box .label {
+            font-size: 0.7rem;
+            color: #7a4a4f;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .selected-template-box .preview {
+            aspect-ratio: 16/9;
+            border-radius: 6px;
+            background-size: cover;
+            background-position: center;
+            background-color: #f5f5f5;
+            border: 2px solid #ff9a9e;
+        }
+
+        .selected-template-box .no-selection {
+            aspect-ratio: 16/9;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 0.75rem;
+        }
+
+        /* Search Box */
+        .template-search {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .template-search input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.5);
+            font-size: 0.8rem;
+            outline: none;
+        }
+
+        .template-search input:focus {
+            border-color: #ff9a9e;
+        }
+
+        .template-search button {
+            padding: 8px 14px;
+            border: none;
+            border-radius: 20px;
+            background: #ff9a9e;
+            color: white;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        /* Template Category Selector */
+        .template-category-row {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .template-category-btn {
+            padding: 4px 10px;
+            border: none;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.4);
+            color: #7a4a4f;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .template-category-btn:hover {
+            background: rgba(255, 255, 255, 0.7);
+        }
+
+        .template-category-btn.active {
+            background: #ff9a9e;
+            color: white;
+        }
+
+        /* Template Grid */
+        .template-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            max-height: 180px;
+            overflow-y: auto;
+        }
+
+        .template-thumb {
+            aspect-ratio: 16/9;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+            background-size: cover;
+            background-position: center;
+            background-color: #eee;
+        }
+
+        .template-thumb:hover {
+            transform: scale(1.03);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+        }
+
+        .template-thumb.selected {
+            border-color: #ff9a9e;
+            box-shadow: 0 2px 8px rgba(255, 154, 158, 0.4);
+        }
+
+        /* Bullet Style Section */
+        .bullet-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .bullet-options {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .bullet-option {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px 4px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .bullet-option:hover {
+            background: rgba(255, 255, 255, 0.6);
+        }
+
+        .bullet-option.selected {
+            background: rgba(255, 154, 158, 0.3);
+            border-color: #ff9a9e;
+        }
+
+        .bullet-option input {
+            display: none;
+        }
+
+        .bullet-symbol {
+            font-size: 1.2rem;
+        }
+
+        .bullet-name {
+            font-size: 0.6rem;
+            color: #7a4a4f;
+            margin-top: 2px;
+        }
+
+        .show-more-btn {
+            width: 100%;
+            padding: 6px;
+            border: none;
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.4);
+            color: #7a4a4f;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .show-more-btn:hover {
+            background: rgba(255, 255, 255, 0.7);
+        }
+
+        .more-bullets {
+            display: none;
+            max-height: 150px;
+            overflow-y: auto;
+            margin-top: 8px;
+        }
+
+        .more-bullets.show {
+            display: grid;
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .loading-overlay i {
+            font-size: 4rem;
+            color: #ff9a9e;
+        }
+
+        .loading-overlay p {
+            color: #d66d75;
+            font-weight: 600;
+            font-size: 1.4rem;
+        }
+
+        /* Slide Count Control */
+        .slide-count-control {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 30px;
+        }
+
+        .slide-count-control label {
+            color: #7a4a4f;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .slide-spinner {
+            width: 60px;
+            padding: 8px 10px;
+            border: 1px solid rgba(255, 154, 158, 0.5);
+            border-radius: 8px;
+            background: white;
+            font-size: 1rem;
+            text-align: center;
+            color: #7a4a4f;
+        }
+
+        .slide-spinner:focus {
+            outline: none;
+            border-color: #ff9a9e;
+        }
+
+        .regenerate-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            background: linear-gradient(90deg, #ff7eb3 0%, #ff758c 100%);
+            /* Charmer Gradient */
+            color: white;
+            font-size: 0.85rem;
+            font-weight: 600;
+            /* Bold */
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.3s;
+        }
+
+        .regenerate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 154, 158, 0.6);
+            filter: brightness(1.1);
+            /* Subtle color shift */
+        }
+
+        /* Slide Limit Modal Styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 240, 245, 0.5);
+            /* Match Login Popup Opacity */
+            backdrop-filter: blur(5px);
+            /* Match Login Popup Blur */
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        /* Mobile drawer extra styles */
+        @media (max-width: 768px) {
+            .slide-sidebar .sidebar-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding-bottom: 10px;
+                border-bottom: 1px solid rgba(255, 154, 158, 0.2);
+            }
+
+            .template-grid {
+                grid-template-columns: repeat(2, 1fr) !important;
+                max-height: none !important;
+            }
+
+            .bullet-options {
+                grid-template-columns: repeat(3, 1fr) !important;
+            }
+
+            .more-bullets {
+                grid-template-columns: repeat(3, 1fr) !important;
+            }
+
+            .template-category-row {
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                padding-bottom: 5px;
+            }
+
+            .template-category-btn {
+                white-space: nowrap;
+                flex-shrink: 0;
+            }
+        }
+    </style>
+
+</head>
+
+<body>
+    <div class="background-container">
+        <video autoplay muted loop playsinline class="bg-video"
+            poster="{{ url_for('static', filename='img/pink_feather_background.png') }}">
+            <source src="{{ url_for('static', filename='vid/cassandra_video.mp4') }}" type="video/mp4">
+            <img src="{{ url_for('static', filename='img/pink_feather_background.png') }}" alt="Background"
+                class="bg-img">
+        </video>
+    </div>
+
+    <!-- Navigation - Same as Dashboard -->
+    <nav class="glass-nav">
+        <div class="nav-brand" style="display: flex; align-items: center; gap: 10px;">
+            Cassandra
+            <img src="{{ url_for('static', filename='img/cs_logo.png') }}" alt="CS Logo" style="height: 45px;">
+            <span style="font-size: 1rem; color: #d66d75; font-weight: 500; margin-left: 8px;">&copy; 2026 Krish
+                Cassandra</span>
+        </div>
+        <div class="nav-user">
+            <span id="navUserName">Welcome, CASSANDRIAN</span>
+            <div style="position: relative;">
+                <div class="user-avatar" onclick="toggleUserDropdown()">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="user-dropdown" id="userDropdown">
+                    <a href="#" onclick="doLogout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <i class="fas fa-circle-notch fa-spin"></i>
+        <p>Generating Slides</p>
+    </div>
+
+    <div class="preview-layout">
+        <!-- Drawer Overlay (mobile) -->
+        <div class="drawer-overlay" id="drawerOverlay" onclick="closeAllDrawers()"></div>
+
+        <!-- Left Drawer Toggle (mobile) -->
+        <button class="drawer-toggle drawer-toggle-left" id="leftDrawerToggle" onclick="toggleLeftDrawer()" aria-label="Toggle slides panel">
+            <i class="fas fa-bars"></i>
+        </button>
+
+        <!-- Right Drawer Toggle (mobile) -->
+        <button class="drawer-toggle drawer-toggle-right" id="rightDrawerToggle" onclick="toggleRightDrawer()" aria-label="Toggle backgrounds panel">
+            <i class="fas fa-palette"></i>
+        </button>
+
+        <!-- Left Sidebar - Slide List -->
+        <aside class="slide-sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-list"></i> Slides</h2>
+                <p>Click to edit</p>
+            </div>
+
+            <ul class="topic-list" id="topicList"></ul>
+
+            <div class="download-section">
+                <button class="download-btn" onclick="downloadPresentation()">
+                    <i class="fas fa-download"></i> Download PPT
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Stage - Slide Preview (FIXED SIZE) -->
+        <main class="slide-stage">
+            <div id="slideCanvas" class="slide-canvas">
+                <h1 id="slideTitle" class="slide-title" contenteditable="true">Loading...</h1>
+                <div id="slideContent" class="slide-content" contenteditable="true">Loading content...</div>
+            </div>
+
+            <div class="slide-controls">
+                <button id="prevSlideBtn" class="control-btn" onclick="changeSlide(-1)"><i
+                        class="fas fa-chevron-left"></i> Prev</button>
+                <div class="slide-counter">
+                    <span id="currentSlideNum">1</span> / <span id="totalSlides">10</span>
+                </div>
+                <button id="nextSlideBtn" class="control-btn" onclick="changeSlide(1)">Next <i
+                        class="fas fa-chevron-right"></i></button>
+                <button class="control-btn primary" onclick="regenerateSlide()"><i
+                        class="fas fa-wand-magic-sparkles"></i> Refine</button>
+            </div>
+            <p class="edit-note">Tip: You can manually type and edit the content above. Thank You slide will be added
+                automatically.</p>
+
+            <!-- Slide Count Control -->
+            <div class="slide-count-control">
+                <label for="slideCount">Slides:</label>
+                <input type="number" id="slideCount" min="10" max="30" value="15" class="slide-spinner">
+                <button class="regenerate-btn" onclick="regenerateWithCount()">
+                    <i class="fas fa-sync-alt"></i> Regenerate
+                </button>
+            </div>
+        </main>
+
+
+        <!-- Right Sidebar - Background & Bullet Options -->
+        <aside class="options-sidebar">
+            <h3><i class="fas fa-image"></i> Background</h3>
+
+            <!-- Currently Selected Template -->
+            <div class="selected-template-box">
+                <div class="label">Current Background</div>
+                <div id="selectedTemplatePreview" class="no-selection">No background</div>
+            </div>
+
+
+            <!-- Search Box -->
+            <div class="template-search">
+                <input type="text" id="templateSearchInput" placeholder="Search themes...">
+                <button onclick="searchTemplates()"><i class="fas fa-search"></i></button>
+            </div>
+
+            <!-- Template Categories -->
+            <div class="template-category-row" id="categoryRow">
+                <button class="template-category-btn active" data-query="abstract background">Abstract</button>
+                <button class="template-category-btn" data-query="nature landscape">Nature</button>
+                <button class="template-category-btn" data-query="gradient colors">Gradient</button>
+                <button class="template-category-btn" data-query="minimal white">Minimal</button>
+                <button class="template-category-btn" data-query="technology digital">Tech</button>
+                <button class="template-category-btn" data-query="business office">Business</button>
+            </div>
+
+            <!-- Template Grid -->
+            <div class="template-grid" id="templateGrid"></div>
+
+            <!-- Bullet Style Section - ALL 80 BULLETS -->
+            <div class="bullet-section">
+                <h3><i class="fas fa-list-ul"></i> Bullet Style</h3>
+
+                <!-- Main 4 bullets (always visible) -->
+                <div class="bullet-options" id="mainBullets">
+                    <label class="bullet-option selected" data-symbol="➣">
+                        <input type="radio" name="bullet-style" value="arrow3d" checked>
+                        <span class="bullet-symbol">➣</span>
+                        <span class="bullet-name">3D Arrow</span>
+                    </label>
+                    <label class="bullet-option" data-symbol="•">
+                        <input type="radio" name="bullet-style" value="circle">
+                        <span class="bullet-symbol">•</span>
+                        <span class="bullet-name">Circle</span>
+                    </label>
+                    <label class="bullet-option" data-symbol="▪">
+                        <input type="radio" name="bullet-style" value="square">
+                        <span class="bullet-symbol">▪</span>
+                        <span class="bullet-name">Square</span>
+                    </label>
+                    <label class="bullet-option" data-symbol="✓">
+                        <input type="radio" name="bullet-style" value="check">
+                        <span class="bullet-symbol">✓</span>
+                        <span class="bullet-name">Check</span>
+                    </label>
+                </div>
+
+                <button class="show-more-btn" onclick="toggleMoreBullets()">Show More ▼</button>
+
+                <!-- ALL 76 additional bullets (Hidden initially) -->
+                <div class="bullet-options more-bullets" id="moreBullets">
+                    <!-- Circles & Basic -->
+                    <label class="bullet-option" data-symbol="·"><input type="radio" name="bullet-style"
+                            value="middot"><span class="bullet-symbol">·</span><span class="bullet-name">Mid
+                            Dot</span></label>
+                    <label class="bullet-option" data-symbol="⊛"><input type="radio" name="bullet-style"
+                            value="circstar"><span class="bullet-symbol">⊛</span><span class="bullet-name">Circled
+                            Star</span></label>
+                    <label class="bullet-option" data-symbol="◉"><input type="radio" name="bullet-style"
+                            value="fisheye"><span class="bullet-symbol">◉</span><span
+                            class="bullet-name">Fisheye</span></label>
+                    <label class="bullet-option" data-symbol="○"><input type="radio" name="bullet-style"
+                            value="whitecircle"><span class="bullet-symbol">○</span><span class="bullet-name">White
+                            Circle</span></label>
+                    <label class="bullet-option" data-symbol="◌"><input type="radio" name="bullet-style"
+                            value="dottedcircle"><span class="bullet-symbol">◌</span><span class="bullet-name">Dotted
+                            Circle</span></label>
+                    <label class="bullet-option" data-symbol="◍"><input type="radio" name="bullet-style"
+                            value="vfillcircle"><span class="bullet-symbol">◍</span><span
+                            class="bullet-name">V-Fill</span></label>
+                    <label class="bullet-option" data-symbol="◎"><input type="radio" name="bullet-style"
+                            value="bullseye"><span class="bullet-symbol">◎</span><span
+                            class="bullet-name">Bullseye</span></label>
+                    <label class="bullet-option" data-symbol="●"><input type="radio" name="bullet-style"
+                            value="blackcircle"><span class="bullet-symbol">●</span><span class="bullet-name">Black
+                            Circle</span></label>
+                    <label class="bullet-option" data-symbol="◘"><input type="radio" name="bullet-style"
+                            value="invbullet"><span class="bullet-symbol">◘</span><span
+                            class="bullet-name">Inverse</span></label>
+                    <label class="bullet-option" data-symbol="◦"><input type="radio" name="bullet-style"
+                            value="whitebullet"><span class="bullet-symbol">◦</span><span class="bullet-name">White
+                            Bullet</span></label>
+                    <label class="bullet-option" data-symbol="☉"><input type="radio" name="bullet-style"
+                            value="sun"><span class="bullet-symbol">☉</span><span class="bullet-name">Sun</span></label>
+
+                    <!-- Hyphens -->
+                    <label class="bullet-option" data-symbol="⁃"><input type="radio" name="bullet-style"
+                            value="hyphen"><span class="bullet-symbol">⁃</span><span
+                            class="bullet-name">Hyphen</span></label>
+                    <label class="bullet-option" data-symbol="⁌"><input type="radio" name="bullet-style"
+                            value="leftbullet"><span class="bullet-symbol">⁌</span><span class="bullet-name">Left
+                            Bullet</span></label>
+                    <label class="bullet-option" data-symbol="⁍"><input type="radio" name="bullet-style"
+                            value="rightbullet"><span class="bullet-symbol">⁍</span><span class="bullet-name">Right
+                            Bullet</span></label>
+
+                    <!-- Diamonds -->
+                    <label class="bullet-option" data-symbol="◆"><input type="radio" name="bullet-style"
+                            value="blackdiamond"><span class="bullet-symbol">◆</span><span class="bullet-name">Black
+                            Diamond</span></label>
+                    <label class="bullet-option" data-symbol="◇"><input type="radio" name="bullet-style"
+                            value="whitediamond"><span class="bullet-symbol">◇</span><span class="bullet-name">White
+                            Diamond</span></label>
+                    <label class="bullet-option" data-symbol="◈"><input type="radio" name="bullet-style"
+                            value="fancydiamond"><span class="bullet-symbol">◈</span><span class="bullet-name">Fancy
+                            Diamond</span></label>
+
+                    <!-- Stars -->
+                    <label class="bullet-option" data-symbol="★"><input type="radio" name="bullet-style"
+                            value="blackstar"><span class="bullet-symbol">★</span><span class="bullet-name">Black
+                            Star</span></label>
+                    <label class="bullet-option" data-symbol="☆"><input type="radio" name="bullet-style"
+                            value="whitestar"><span class="bullet-symbol">☆</span><span class="bullet-name">White
+                            Star</span></label>
+
+                    <!-- Squares -->
+                    <label class="bullet-option" data-symbol="■"><input type="radio" name="bullet-style"
+                            value="blacksquare"><span class="bullet-symbol">■</span><span class="bullet-name">Black
+                            Square</span></label>
+                    <label class="bullet-option" data-symbol="□"><input type="radio" name="bullet-style"
+                            value="whitesquare"><span class="bullet-symbol">□</span><span class="bullet-name">White
+                            Square</span></label>
+                    <label class="bullet-option" data-symbol="☐"><input type="radio" name="bullet-style"
+                            value="checkbox"><span class="bullet-symbol">☐</span><span
+                            class="bullet-name">Checkbox</span></label>
+                    <label class="bullet-option" data-symbol="☑"><input type="radio" name="bullet-style"
+                            value="checkedbox"><span class="bullet-symbol">☑</span><span
+                            class="bullet-name">Checked</span></label>
+                    <label class="bullet-option" data-symbol="☒"><input type="radio" name="bullet-style"
+                            value="crossbox"><span class="bullet-symbol">☒</span><span class="bullet-name">Cross
+                            Box</span></label>
+
+                    <!-- Checks -->
+                    <label class="bullet-option" data-symbol="✔"><input type="radio" name="bullet-style"
+                            value="heavycheck"><span class="bullet-symbol">✔</span><span class="bullet-name">Heavy
+                            Check</span></label>
+
+                    <!-- Hearts -->
+                    <label class="bullet-option" data-symbol="❥"><input type="radio" name="bullet-style"
+                            value="rotheartbullet"><span class="bullet-symbol">❥</span><span
+                            class="bullet-name">Heart</span></label>
+                    <label class="bullet-option" data-symbol="❧"><input type="radio" name="bullet-style"
+                            value="floralheart"><span class="bullet-symbol">❧</span><span
+                            class="bullet-name">Floral</span></label>
+                    <label class="bullet-option" data-symbol="☙"><input type="radio" name="bullet-style"
+                            value="revfloralheart"><span class="bullet-symbol">☙</span><span class="bullet-name">Rev
+                            Heart</span></label>
+
+                    <!-- Special -->
+                    <label class="bullet-option" data-symbol="☸"><input type="radio" name="bullet-style"
+                            value="dharma"><span class="bullet-symbol">☸</span><span
+                            class="bullet-name">Dharma</span></label>
+                    <label class="bullet-option" data-symbol="✤"><input type="radio" name="bullet-style"
+                            value="balloonaster"><span class="bullet-symbol">✤</span><span
+                            class="bullet-name">Balloon</span></label>
+                    <label class="bullet-option" data-symbol="✱"><input type="radio" name="bullet-style"
+                            value="heavyaster"><span class="bullet-symbol">✱</span><span class="bullet-name">Heavy
+                            Star</span></label>
+                    <label class="bullet-option" data-symbol="✲"><input type="radio" name="bullet-style"
+                            value="openaster"><span class="bullet-symbol">✲</span><span class="bullet-name">Open
+                            Star</span></label>
+                    <label class="bullet-option" data-symbol="❖"><input type="radio" name="bullet-style"
+                            value="diamondminusx"><span class="bullet-symbol">❖</span><span class="bullet-name">Diamond
+                            X</span></label>
+                    <label class="bullet-option" data-symbol="✦"><input type="radio" name="bullet-style"
+                            value="whitestarfilled"><span class="bullet-symbol">✦</span><span class="bullet-name">Star
+                            Filled</span></label>
+                    <label class="bullet-option" data-symbol="✧"><input type="radio" name="bullet-style"
+                            value="whitestarunfilled"><span class="bullet-symbol">✧</span><span class="bullet-name">Star
+                            Unfilled</span></label>
+
+                    <!-- ALL ARROWS -->
+                    <label class="bullet-option" data-symbol="↠"><input type="radio" name="bullet-style"
+                            value="arrow2head"><span class="bullet-symbol">↠</span><span
+                            class="bullet-name">2-Head</span></label>
+                    <label class="bullet-option" data-symbol="↣"><input type="radio" name="bullet-style"
+                            value="arrowtail"><span class="bullet-symbol">↣</span><span
+                            class="bullet-name">Tail</span></label>
+                    <label class="bullet-option" data-symbol="↦"><input type="radio" name="bullet-style"
+                            value="arrowbar"><span class="bullet-symbol">↦</span><span
+                            class="bullet-name">Bar</span></label>
+                    <label class="bullet-option" data-symbol="↬"><input type="radio" name="bullet-style"
+                            value="arrowloop"><span class="bullet-symbol">↬</span><span
+                            class="bullet-name">Loop</span></label>
+                    <label class="bullet-option" data-symbol="⇛"><input type="radio" name="bullet-style"
+                            value="triplearrow"><span class="bullet-symbol">⇛</span><span
+                            class="bullet-name">Triple</span></label>
+                    <label class="bullet-option" data-symbol="⇝"><input type="radio" name="bullet-style"
+                            value="squigglearrow"><span class="bullet-symbol">⇝</span><span
+                            class="bullet-name">Squiggle</span></label>
+                    <label class="bullet-option" data-symbol="⇢"><input type="radio" name="bullet-style"
+                            value="dashedarrow"><span class="bullet-symbol">⇢</span><span
+                            class="bullet-name">Dashed</span></label>
+                    <label class="bullet-option" data-symbol="⇨"><input type="radio" name="bullet-style"
+                            value="whitearrow"><span class="bullet-symbol">⇨</span><span
+                            class="bullet-name">White</span></label>
+                    <label class="bullet-option" data-symbol="➙"><input type="radio" name="bullet-style"
+                            value="heavyarrow"><span class="bullet-symbol">➙</span><span
+                            class="bullet-name">Heavy</span></label>
+                    <label class="bullet-option" data-symbol="➛"><input type="radio" name="bullet-style"
+                            value="draftarrow"><span class="bullet-symbol">➛</span><span
+                            class="bullet-name">Draft</span></label>
+                    <label class="bullet-option" data-symbol="➜"><input type="radio" name="bullet-style"
+                            value="roundarrow"><span class="bullet-symbol">➜</span><span
+                            class="bullet-name">Round</span></label>
+                    <label class="bullet-option" data-symbol="➝"><input type="radio" name="bullet-style"
+                            value="trianglearrow"><span class="bullet-symbol">➝</span><span
+                            class="bullet-name">Triangle</span></label>
+                    <label class="bullet-option" data-symbol="➞"><input type="radio" name="bullet-style"
+                            value="heavytriarrow"><span class="bullet-symbol">➞</span><span class="bullet-name">Heavy
+                            Tri</span></label>
+                    <label class="bullet-option" data-symbol="➟"><input type="radio" name="bullet-style"
+                            value="dashtriarrow"><span class="bullet-symbol">➟</span><span class="bullet-name">Dash
+                            Tri</span></label>
+                    <label class="bullet-option" data-symbol="➠"><input type="radio" name="bullet-style"
+                            value="hdashtriarrow"><span class="bullet-symbol">➠</span><span
+                            class="bullet-name">H-Dash</span></label>
+                    <label class="bullet-option" data-symbol="➡"><input type="radio" name="bullet-style"
+                            value="blackarrow"><span class="bullet-symbol">➡</span><span
+                            class="bullet-name">Black</span></label>
+                    <label class="bullet-option" data-symbol="➢"><input type="radio" name="bullet-style"
+                            value="3dtop"><span class="bullet-symbol">➢</span><span class="bullet-name">3D
+                            Top</span></label>
+                    <label class="bullet-option" data-symbol="➤"><input type="radio" name="bullet-style"
+                            value="arrow"><span class="bullet-symbol">➤</span><span
+                            class="bullet-name">Arrow</span></label>
+                    <label class="bullet-option" data-symbol="➥"><input type="radio" name="bullet-style"
+                            value="curvedown"><span class="bullet-symbol">➥</span><span class="bullet-name">Curve
+                            Down</span></label>
+                    <label class="bullet-option" data-symbol="➦"><input type="radio" name="bullet-style"
+                            value="curveup"><span class="bullet-symbol">➦</span><span class="bullet-name">Curve
+                            Up</span></label>
+                    <label class="bullet-option" data-symbol="➧"><input type="radio" name="bullet-style"
+                            value="squatarrow"><span class="bullet-symbol">➧</span><span
+                            class="bullet-name">Squat</span></label>
+                    <label class="bullet-option" data-symbol="➨"><input type="radio" name="bullet-style"
+                            value="concavearrow"><span class="bullet-symbol">➨</span><span
+                            class="bullet-name">Concave</span></label>
+                    <label class="bullet-option" data-symbol="➮"><input type="radio" name="bullet-style"
+                            value="shadowarrow"><span class="bullet-symbol">➮</span><span
+                            class="bullet-name">Shadow</span></label>
+                    <label class="bullet-option" data-symbol="➱"><input type="radio" name="bullet-style"
+                            value="notcharrow"><span class="bullet-symbol">➱</span><span
+                            class="bullet-name">Notch</span></label>
+                    <label class="bullet-option" data-symbol="➲"><input type="radio" name="bullet-style"
+                            value="circledarrow"><span class="bullet-symbol">➲</span><span
+                            class="bullet-name">Circled</span></label>
+                    <label class="bullet-option" data-symbol="➳"><input type="radio" name="bullet-style"
+                            value="whitefeather"><span class="bullet-symbol">➳</span><span
+                            class="bullet-name">W-Feather</span></label>
+                    <label class="bullet-option" data-symbol="➵"><input type="radio" name="bullet-style"
+                            value="blackfeather"><span class="bullet-symbol">➵</span><span
+                            class="bullet-name">B-Feather</span></label>
+                    <label class="bullet-option" data-symbol="➸"><input type="radio" name="bullet-style"
+                            value="heavyfeather"><span class="bullet-symbol">➸</span><span
+                            class="bullet-name">H-Feather</span></label>
+                    <label class="bullet-option" data-symbol="➼"><input type="radio" name="bullet-style"
+                            value="wedgetail"><span class="bullet-symbol">➼</span><span
+                            class="bullet-name">Wedge</span></label>
+                    <label class="bullet-option" data-symbol="➽"><input type="radio" name="bullet-style"
+                            value="heavywedge"><span class="bullet-symbol">➽</span><span
+                            class="bullet-name">H-Wedge</span></label>
+                    <label class="bullet-option" data-symbol="➾"><input type="radio" name="bullet-style"
+                            value="openoutline"><span class="bullet-symbol">➾</span><span
+                            class="bullet-name">Open</span></label>
+                    <label class="bullet-option" data-symbol="→"><input type="radio" name="bullet-style"
+                            value="simplearrow"><span class="bullet-symbol">→</span><span
+                            class="bullet-name">Simple</span></label>
+                    <label class="bullet-option" data-symbol="⇾"><input type="radio" name="bullet-style"
+                            value="openhead"><span class="bullet-symbol">⇾</span><span class="bullet-name">Open
+                            Head</span></label>
+                    <label class="bullet-option" data-symbol="⇒"><input type="radio" name="bullet-style"
+                            value="doublearrow"><span class="bullet-symbol">⇒</span><span
+                            class="bullet-name">Double</span></label>
+
+                    <!-- Triangles -->
+                    <label class="bullet-option" data-symbol="‣"><input type="radio" name="bullet-style"
+                            value="tribullet"><span class="bullet-symbol">‣</span><span class="bullet-name">Tri
+                            Bullet</span></label>
+                    <label class="bullet-option" data-symbol="▶"><input type="radio" name="bullet-style"
+                            value="blacktri"><span class="bullet-symbol">▶</span><span class="bullet-name">Black
+                            Tri</span></label>
+                    <label class="bullet-option" data-symbol="▷"><input type="radio" name="bullet-style"
+                            value="whitetri"><span class="bullet-symbol">▷</span><span class="bullet-name">White
+                            Tri</span></label>
+                    <label class="bullet-option" data-symbol="▸"><input type="radio" name="bullet-style"
+                            value="smallblacktri"><span class="bullet-symbol">▸</span><span class="bullet-name">Sm
+                            Black</span></label>
+                    <label class="bullet-option" data-symbol="▹"><input type="radio" name="bullet-style"
+                            value="smallwhitetri"><span class="bullet-symbol">▹</span><span class="bullet-name">Sm
+                            White</span></label>
+                    <label class="bullet-option" data-symbol="►"><input type="radio" name="bullet-style"
+                            value="blackpointer"><span class="bullet-symbol">►</span><span
+                            class="bullet-name">Pointer</span></label>
+                    <label class="bullet-option" data-symbol="▻"><input type="radio" name="bullet-style"
+                            value="whitepointer"><span class="bullet-symbol">▻</span><span
+                            class="bullet-name">W-Pointer</span></label>
+
+                    <!-- Special Stripe Arrows -->
+                    <label class="bullet-option" data-symbol="⫸"><input type="radio" name="bullet-style"
+                            value="triright"><span class="bullet-symbol">⫸</span><span class="bullet-name">Triple
+                            Right</span></label>
+                    <label class="bullet-option" data-symbol="⫷"><input type="radio" name="bullet-style"
+                            value="trileft"><span class="bullet-symbol">⫷</span><span class="bullet-name">Triple
+                            Left</span></label>
+                    <label class="bullet-option" data-symbol="⪢"><input type="radio" name="bullet-style"
+                            value="dblright"><span class="bullet-symbol">⪢</span><span class="bullet-name">Dbl
+                            Right</span></label>
+                    <label class="bullet-option" data-symbol="⪡"><input type="radio" name="bullet-style"
+                            value="dblleft"><span class="bullet-symbol">⪡</span><span class="bullet-name">Dbl
+                            Left</span></label>
+                </div>
+            </div>
+
+        </aside>
+
+    </div>
+
+    <script>
+        // Get data from URL params
+        const urlParams = new URLSearchParams(window.location.search);
+        const topic = urlParams.get('topic') || 'Sample Topic';
+        const templateUrl = urlParams.get('templateUrl') || '';
+        const templateCategory = urlParams.get('template') || 'default';
+
+        // State
+        let slides = [];
+        let currentSlideIndex = 0;
+        let currentBackgroundUrl = templateUrl;
+        let selectedBulletSymbol = '➣';
+
+        // Default slide structure (10 content slides - NO Thank You, it's added automatically by PPT generator)
+        function getDefaultSlides(topic) {
+            return [
+                {
+                    title: `Introduction to ${topic}`,
+                    content: `${topic} represents a significant advancement in its field.\n\nIt encompasses various methodologies and approaches that have evolved over time.\n\nThe fundamental principles underlying ${topic} provide a strong foundation for understanding its applications.`,
+                    type: 'paragraph'
+                },
+                {
+                    title: `Overview of ${topic}`,
+                    content: `➣ ${topic} is a comprehensive framework that addresses modern challenges.\n➣ It integrates multiple components to provide effective solutions.\n➣ The core principles are designed for scalability and efficiency.\n➣ Understanding the fundamentals enables better implementation.`,
+                    type: 'bullet'
+                },
+                {
+                    title: 'Key Concepts',
+                    content: `➣ Foundation principles form the backbone of implementation.\n➣ Core terminology and definitions establish clear understanding.\n➣ Theoretical frameworks guide practical applications.\n➣ Component relationships enable system integration.`,
+                    type: 'bullet'
+                },
+                {
+                    title: 'Core Principles',
+                    content: `➣ Modularity ensures flexible component design.\n➣ Scalability considerations enable growth and adaptation.\n➣ Efficiency optimization reduces resource consumption.\n➣ Reliability measures guarantee consistent performance.`,
+                    type: 'bullet'
+                },
+                {
+                    title: 'Applications & Use Cases',
+                    content: `➣ Industry applications demonstrate practical value.\n➣ Research applications advance scientific understanding.\n➣ Everyday use cases show accessibility to users.\n➣ Future possibilities reveal untapped potential.`,
+                    type: 'bullet'
+                },
+                {
+                    title: 'Advantages',
+                    content: `➣ Enhanced efficiency improves overall performance.\n➣ Cost-effectiveness reduces operational expenses.\n➣ Scalability allows adaptation to requirements.\n➣ User-friendly design ensures easy adoption.`,
+                    type: 'bullet'
+                },
+                {
+                    title: 'Disadvantages',
+                    content: `➣ Initial implementation may require investment.\n➣ Learning curve can be steep for complex uses.\n➣ Compatibility issues may arise with legacy systems.\n➣ Maintenance needs ongoing attention.`,
+                    type: 'bullet'
+                },
+                {
+                    title: 'Limitations',
+                    content: `➣ Technical constraints may limit certain applications.\n➣ Resource requirements can be substantial.\n➣ Knowledge gaps exist in specific areas.\n➣ Environmental factors may affect performance.`,
+                    type: 'bullet'
+                },
+                {
+                    title: 'Future Scope',
+                    content: `➣ Emerging trends indicate growing adoption.\n➣ Research explores new application domains.\n➣ Technological advances enable enhanced capabilities.\n➣ Industry evolution creates new opportunities.`,
+                    type: 'bullet'
+                },
+                {
+                    title: 'Conclusion',
+                    content: `In conclusion, ${topic} offers significant value across multiple dimensions.\n\nThe advantages clearly outweigh the limitations when proper implementation strategies are followed.\n\nContinued research and practical application will unlock further potential.`,
+                    type: 'paragraph'
+                }
+            ];
+        }
+
+        // Toggle user dropdown
+        function toggleUserDropdown() {
+            const dropdown = document.getElementById('userDropdown');
+            dropdown.classList.toggle('show');
+        }
+
+        // Show error popup modal (like name input modal)
+        function showErrorPopup(message) {
+            // Create modal if doesn't exist
+            let modal = document.getElementById('errorModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'errorModal';
+                modal.style.cssText = `
+                    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                    background: rgba(0,0,0,0.5); display: flex; align-items: center;
+                    justify-content: center; z-index: 9999; backdrop-filter: blur(5px);
+                `;
+                modal.innerHTML = `
+                    <div style="background: rgba(255,255,255,0.95); padding: 30px 40px;
+                        border-radius: 16px; text-align: center; max-width: 400px;
+                        box-shadow: 0 10px 40px rgba(0,0,0,0.2); backdrop-filter: blur(10px);">
+                        <i class="fas fa-exclamation-circle" style="font-size: 48px; color: #ff6b6b; margin-bottom: 15px;"></i>
+                        <p id="errorMessage" style="font-size: 1.1rem; color: #333; margin-bottom: 20px;"></p>
+                        <button onclick="closeErrorPopup()" style="
+                            padding: 12px 30px; background: linear-gradient(to right, #ff9a9e, #fad0c4);
+                            border: none; border-radius: 25px; color: #fff; font-weight: 600;
+                            cursor: pointer; font-size: 1rem;">OK</button>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+            document.getElementById('errorMessage').textContent = message;
+            modal.style.display = 'flex';
+        }
+
+        function closeErrorPopup() {
+            const modal = document.getElementById('errorModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('userDropdown');
+            const avatar = document.querySelector('.user-avatar');
+            if (dropdown && avatar && !avatar.contains(e.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
+
+        // Logout function - clear localStorage and redirect
+        function doLogout() {
+            localStorage.removeItem('cassandra_username');
+            window.location.href = '/logout';
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+
+            const userName = localStorage.getItem('cassandra_username') || 'CASSANDRIAN';
+            document.getElementById('navUserName').textContent = `Welcome, ${userName}`;
+
+            // Show loading while AI generates content
+            document.getElementById('loadingOverlay').classList.add('active');
+            document.querySelector('#loadingOverlay p').textContent = 'Generating Slides';
+
+            try {
+                // Check if we have custom user titles from Dashboard
+                const urlParams = new URLSearchParams(window.location.search);
+                const isUserSource = urlParams.get('source') === 'user';
+                let customTitles = [];
+
+                if (isUserSource) {
+                    try {
+                        const stored = sessionStorage.getItem('cassandra_user_titles');
+                        if (stored) customTitles = JSON.parse(stored);
+                    } catch (e) {
+                        console.error("Failed to parse user titles", e);
+                    }
+                }
+
+                // Call API to get AI-generated slides (or use custom titles)
+                const contentMode = urlParams.get('content_mode') || 'cassandra';
+                const payload = { topic: topic, content_mode: contentMode };
+                if (customTitles.length > 0) {
+                    payload.user_titles = customTitles;
+                    console.log(`Sending ${customTitles.length} custom titles to API`);
+                }
+
+                const response = await fetch('/api/generate-preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.slides && data.slides.length > 0) {
+                    slides = data.slides;
+                    console.log(`✅ Loaded ${slides.length} slides`);
+                    // Clean up sessionStorage
+                    if (isUserSource) sessionStorage.removeItem('cassandra_user_titles');
+                } else {
+                    console.log('⚠️ Using fallback slides');
+                    slides = getDefaultSlides(topic);
+                }
+            } catch (error) {
+                console.error('❌ API error:', error);
+                slides = getDefaultSlides(topic);
+            }
+
+            // Hide loading
+            document.getElementById('loadingOverlay').classList.remove('active');
+
+            renderSlideList();
+            updateSlideDisplay();
+            loadTemplates('abstract background');
+            setupCategoryButtons();
+            setupBulletOptions();
+
+            if (currentBackgroundUrl) {
+                applyBackground(currentBackgroundUrl);
+                updateSelectedPreview(currentBackgroundUrl);
+            }
+
+            // Search on Enter
+            document.getElementById('templateSearchInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') searchTemplates();
+            });
+        });
+
+
+        // Render slide list
+        function renderSlideList() {
+            const list = document.getElementById('topicList');
+            list.innerHTML = '';
+            slides.forEach((slide, i) => {
+                const li = document.createElement('li');
+                li.className = `topic-item ${i === currentSlideIndex ? 'active' : ''}`;
+                li.innerHTML = `<span class="slide-num">${i + 1}</span><span>${slide.title.length > 20 ? slide.title.substring(0, 20) + '...' : slide.title}</span>`;
+                li.onclick = () => jumpToSlide(i);
+                list.appendChild(li);
+            });
+
+            // Add Thank You slide at the end
+            const thankYouLi = document.createElement('li');
+            thankYouLi.className = 'topic-item thank-you-slide-item';
+            thankYouLi.innerHTML = `<span class="slide-num">${slides.length + 1}</span><span>✨ Thank You</span>`;
+            thankYouLi.onclick = () => jumpToSlide(slides.length);
+            list.appendChild(thankYouLi);
+
+            document.getElementById('totalSlides').textContent = slides.length + 1;
+        }
+
+        // Update slide display
+        function updateSlideDisplay() {
+            const slideTitle = document.getElementById('slideTitle');
+            const slideContent = document.getElementById('slideContent');
+            const slideNum = document.getElementById('currentSlideNum');
+
+            if (currentSlideIndex < slides.length) {
+                // Normal Slide
+                const slide = slides[currentSlideIndex];
+                slideTitle.textContent = slide.title;
+                slideContent.innerHTML = slide.content.replace(/\n/g, '<br>');
+                slideContent.contentEditable = "true";
+                slideTitle.contentEditable = "true";
+
+                // Restore the main template background
+                const canvas = document.getElementById('slideCanvas');
+                canvas.style.backgroundImage = currentBackgroundUrl ? `url(${currentBackgroundUrl})` : 'none';
+            } else {
+                // Thank You Slide
+                slideTitle.textContent = "Thank You";
+
+                // If a thank you image was selected, show it as the slide background
+                const canvas = document.getElementById('slideCanvas');
+                if (selectedThankYouImageUrl) {
+                    canvas.style.backgroundImage = `url(${selectedThankYouImageUrl})`;
+                } else if (currentBackgroundUrl) {
+                    canvas.style.backgroundImage = `url(${currentBackgroundUrl})`;
+                }
+
+                slideContent.innerHTML = `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%;">
+                    <i class="fas fa-hand-holding-heart" style="font-size: 3rem; color: #ff9a9e; margin-bottom: 20px;"></i>
+                    <p>This is the final slide of your presentation.</p>
+                    <button class="thank-you-btn" onclick="showThankYouImageSelector()" style="margin-top:20px;">
+                        Customize Background
+                    </button>
+                </div>`;
+                slideContent.contentEditable = "false";
+                slideTitle.contentEditable = "false";
+            }
+
+            slideNum.textContent = currentSlideIndex + 1;
+            document.querySelectorAll('.topic-item').forEach((item, i) => item.classList.toggle('active', i === currentSlideIndex));
+
+            // Update button states
+            document.getElementById('prevSlideBtn').disabled = currentSlideIndex === 0;
+            document.getElementById('nextSlideBtn').disabled = currentSlideIndex >= slides.length;
+        }
+
+        function saveCurrentSlide() {
+            if (currentSlideIndex >= slides.length) return; // Don't save for Thank You slide
+
+            slides[currentSlideIndex].title = document.getElementById('slideTitle').textContent;
+            // Convert HTML line breaks back to newlines
+            let content = document.getElementById('slideContent').innerHTML;
+            content = content.replace(/<br\s*\/?>/gi, '\n');
+            content = content.replace(/<[^>]*>/g, ''); // Remove any other HTML tags
+            slides[currentSlideIndex].content = content;
+        }
+
+        function changeSlide(dir) {
+            saveCurrentSlide();
+            // Allow going to slides.length (Thank You slide)
+            currentSlideIndex = Math.max(0, Math.min(slides.length, currentSlideIndex + dir));
+            updateSlideDisplay();
+        }
+
+        function jumpToSlide(i) {
+            saveCurrentSlide();
+            currentSlideIndex = i;
+            updateSlideDisplay();
+        }
+
+        async function regenerateSlide() {
+            const currentSlide = slides[currentSlideIndex];
+            if (!currentSlide) return;
+
+            // Save current content first
+            saveCurrentSlide();
+
+            // Show loading
+            document.getElementById('loadingOverlay').classList.add('active');
+            document.querySelector('#loadingOverlay p').textContent = 'Refining Slide';
+
+            try {
+                const response = await fetch('/api/refine-slide', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        topic: topic,
+                        slide_title: currentSlide.title,
+                        current_content: currentSlide.content,
+                        style: currentSlide.type || 'bullet',
+                        bullet_symbol: selectedBulletSymbol  // Use selected bullet style
+                    })
+                });
+
+
+                const data = await response.json();
+
+                if (data.success && data.content) {
+                    slides[currentSlideIndex].content = data.content;
+                    updateSlideDisplay();
+                    console.log('Slide refined successfully');
+                } else {
+                    alert('Failed to refine slide: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Refine error:', error);
+                alert('Failed to refine slide. Please try again.');
+            }
+
+            document.getElementById('loadingOverlay').classList.remove('active');
+        }
+
+
+        // Regenerate slides with new count
+        async function regenerateWithCount() {
+            const slideCount = parseInt(document.getElementById('slideCount').value) || 15;
+
+            if (slideCount < 10 || slideCount > 30) {
+                showSlideLimitModal(); // Use custom glassmorphic modal
+                return;
+            }
+
+
+            // Show loading
+            document.getElementById('loadingOverlay').classList.add('active');
+            document.querySelector('#loadingOverlay p').textContent = 'Generating Slides';
+
+            try {
+                const response = await fetch('/api/generate-preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ topic: topic, num_slides: slideCount })
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.slides && data.slides.length > 0) {
+                    slides = data.slides;
+                    currentSlideIndex = 0;
+                    console.log(`✅ Regenerated ${slides.length} slides`);
+                }
+            } catch (error) {
+                console.error('Regenerate error:', error);
+                alert('Failed to regenerate slides. Please try again.');
+            }
+
+            document.getElementById('loadingOverlay').classList.remove('active');
+            renderSlideList();
+            updateSlideDisplay();
+        }
+
+        // Category buttons
+        function setupCategoryButtons() {
+            document.querySelectorAll('.template-category-btn').forEach(btn => {
+                btn.onclick = () => {
+                    document.querySelectorAll('.template-category-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    loadTemplates(btn.dataset.query);
+                };
+            });
+        }
+
+        // Search templates
+        function searchTemplates() {
+            const query = document.getElementById('templateSearchInput').value.trim();
+            if (query) {
+                document.querySelectorAll('.template-category-btn').forEach(b => b.classList.remove('active'));
+                loadTemplates(query);
+            }
+        }
+
+        // Load templates
+        function loadTemplates(query) {
+            const grid = document.getElementById('templateGrid');
+            grid.innerHTML = '<p style="color:#999;font-size:0.7rem;grid-column:1/-1;text-align:center;">Loading...</p>';
+
+            fetch(`/api/templates?query=${encodeURIComponent(query)}&count=30`)
+
+                .then(res => res.json())
+                .then(data => {
+                    grid.innerHTML = '';
+                    if (data.success && data.templates.length > 0) {
+                        data.templates.forEach(t => {
+                            const thumb = document.createElement('div');
+                            thumb.className = `template-thumb ${t.url === currentBackgroundUrl ? 'selected' : ''}`;
+                            thumb.style.backgroundImage = `url(${t.thumb_url})`;
+                            thumb.onclick = () => selectTemplate(t.url, t.thumb_url, thumb);
+                            thumb.title = `By ${t.photographer}`;
+                            grid.appendChild(thumb);
+                        });
+                    } else {
+                        grid.innerHTML = '<p style="color:#999;font-size:0.7rem;grid-column:1/-1;">No templates found</p>';
+                    }
+                })
+                .catch(() => {
+                    grid.innerHTML = '<p style="color:#999;font-size:0.7rem;grid-column:1/-1;">Error loading</p>';
+                });
+        }
+
+        function selectTemplate(url, thumbUrl, el) {
+            currentBackgroundUrl = url;
+            applyBackground(url);
+            updateSelectedPreview(thumbUrl);
+            document.querySelectorAll('.template-thumb').forEach(t => t.classList.remove('selected'));
+            el.classList.add('selected');
+        }
+
+        function updateSelectedPreview(url) {
+            const preview = document.getElementById('selectedTemplatePreview');
+            if (url) {
+                preview.className = 'preview';
+                preview.style.backgroundImage = `url(${url})`;
+                preview.textContent = '';
+            } else {
+                preview.className = 'no-selection';
+                preview.style.backgroundImage = 'none';
+                preview.textContent = 'No background';
+            }
+        }
+
+        function applyBackground(url) {
+            const canvas = document.getElementById('slideCanvas');
+            canvas.style.backgroundImage = url ? `url(${url})` : 'none';
+        }
+
+        // Bullet options
+        function setupBulletOptions() {
+            document.querySelectorAll('.bullet-option').forEach(opt => {
+                opt.onclick = () => {
+                    document.querySelectorAll('.bullet-option').forEach(o => o.classList.remove('selected'));
+                    opt.classList.add('selected');
+                    opt.querySelector('input').checked = true;
+                    selectedBulletSymbol = opt.dataset.symbol;
+                    updateBulletsInSlides();
+                };
+            });
+        }
+
+        function toggleMoreBullets() {
+            const more = document.getElementById('moreBullets');
+            const btn = document.querySelector('.show-more-btn');
+            if (more.classList.contains('show')) {
+                more.classList.remove('show');
+                btn.textContent = 'Show More ▼';
+            } else {
+                more.classList.add('show');
+                btn.textContent = 'Show Less ▲';
+            }
+        }
+
+        function updateBulletsInSlides() {
+            // Comprehensive regex to match ALL bullet symbols
+            const bulletPattern = /^[·⊛◉○◌◍◎●◘◦☉⁃⁌⁍◆◇◈★☆■□☐☑☒✓✔❥❧☙☸✤✱✲❖✦✧↠↣↦↬⇛⇝⇢⇨➙➛➜➝➞➟➠➡➢➣➤➥➦➧➨➮➱➲➳➵➸➼➽➾→⇾⇒‣▶▷▸▹►▻⫸⫷⪢⪡•▪]\s*/gm;
+
+            slides.forEach((slide, i) => {
+                if (slide.type === 'bullet') {
+                    slide.content = slide.content.replace(bulletPattern, selectedBulletSymbol + ' ');
+                }
+            });
+            updateSlideDisplay();
+        }
+
+
+        // Download presentation - sends FULL slide content (user-edited)
+        async function downloadPresentation() {
+            saveCurrentSlide();
+
+            const overlay = document.getElementById('loadingOverlay');
+            overlay.classList.add('active');
+
+            // Send full slide data with titles AND content
+            const slideData = slides.map(s => ({
+                title: s.title,
+                content: s.content,
+                type: s.type || 'bullet'
+            }));
+
+            fetch('/api/generate-ppt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    topic: topic,
+                    slides: slideData,
+                    templateUrl: currentBackgroundUrl,
+                    bulletSymbol: selectedBulletSymbol,
+                    thankYouImageUrl: selectedThankYouImageUrl || '',
+                    mode: 'decide'  // Decide mode sends full content
+                })
+            })
+                .then(response => {
+                    if (!response.ok) return response.json().then(err => { throw new Error(err.error || 'Generation failed'); });
+                    return response.blob();
+                })
+                .then(blob => {
+                    overlay.classList.remove('active');
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `cassandra_${topic.replace(/\s+/g, '_')}.pptx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+                    setTimeout(() => { window.location.href = '/thank-you'; }, 500);
+                })
+                .catch(error => {
+                    overlay.classList.remove('active');
+                    console.error('Download error:', error);
+                    alert('Error: ' + error.message);
+                });
+        }
+    </script>
+    <!-- Custom Slide Limit Modal (Global) -->
+    <div id="slideLimitModal" class="modal-overlay">
+        <div class="glass-card" style="width: 90%; max-width: 400px; padding: 40px; text-align: center;">
+            <div
+                style="width: 60px; height: 60px; background: rgba(255, 107, 107, 0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                <i class="fas fa-exclamation-triangle" style="color: #ff6b6b; font-size: 1.5rem;"></i>
+            </div>
+            <h2 style="color: #e57373; margin-bottom: 15px; font-family: 'Poppins', sans-serif;">Slide Limit
+                Exceeded</h2>
+            <p style="color: #7a4a4f; margin-bottom: 25px; line-height: 1.6;">
+                Please select between <strong>10 and 30 slides</strong> for the best presentation quality.
+            </p>
+            <button onclick="closeSlideLimitModal()"
+                style="padding: 12px 30px; border-radius: 50px; border: none; background: linear-gradient(to right, #ff9a9e, #fad0c4); color: white; font-weight: 600; cursor: pointer; box-shadow: 0 4px 15px rgba(255, 154, 158, 0.4); transition: transform 0.2s;">
+                Got it
+            </button>
+        </div>
+    </div>
+
+    <script>
+        function showSlideLimitModal() {
+            const modal = document.getElementById('slideLimitModal');
+            modal.classList.add('active');
+
+            // Auto close after 5 seconds (Blocking effect)
+            setTimeout(() => {
+                closeSlideLimitModal();
+            }, 5000);
+        }
+
+        function closeSlideLimitModal() {
+            const modal = document.getElementById('slideLimitModal');
+            modal.classList.remove('active');
+        }
+    </script>
+
+    <!-- Thank You Image Selection Modal -->
+    <div id="thankYouModal" class="thank-you-modal" style="display: none;">
+        <div class="thank-you-modal-overlay"></div>
+        <div class="thank-you-modal-content">
+            <div class="thank-you-modal-header">
+                <h2>✨ Select Thank You Slide Background</h2>
+                <p>Choose an image for your final slide, or skip to use the template style.</p>
+
+                <!-- Selected Image Preview (Styled like Background Selector) -->
+                <div class="thank-you-preview-container">
+                    <div class="selected-template-box"
+                        style="max-width: 400px; margin: 20px auto 0; background: rgba(255,255,255,0.5);">
+                        <div class="label">Current Selection</div>
+                        <div id="thankYouPreviewBox" class="no-selection">No image selected</div>
+                    </div>
+                </div>
+            </div>
+            <div class="thank-you-modal-body">
+                <div id="thankYouGalleryContainer" class="thank-you-gallery-container">
+                    <div id="thankYouGallery" class="thank-you-gallery">
+                        <div class="thank-you-loading">
+                            <i class="fas fa-circle-notch fa-spin"></i>
+                            <p>Loading Images</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="thank-you-modal-footer">
+                <button class="thank-you-btn skip-btn" onclick="skipThankYouSelection()">
+                    Skip
+                </button>
+                <button class="thank-you-btn continue-btn" onclick="confirmThankYouSelection()">
+                    Continue
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* Thank You Slide in List - Animated Glow */
+        .thank-you-slide-item {
+            background: linear-gradient(90deg, rgba(255, 126, 179, 0.3), rgba(255, 117, 140, 0.3)) !important;
+            animation: thankYouGlow 2s ease-in-out infinite;
+            font-weight: 700 !important;
+        }
+
+        @keyframes thankYouGlow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 10px rgba(255, 117, 140, 0.5);
+            }
+
+            50% {
+                box-shadow: 0 0 20px rgba(255, 117, 140, 0.9);
+            }
+        }
+
+        .thank-you-slide-item:hover {
+            background: linear-gradient(90deg, rgba(255, 126, 179, 0.5), rgba(255, 117, 140, 0.5)) !important;
+            transform: translateX(5px);
+        }
+
+        /* Modal Styles */
+        .thank-you-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .thank-you-modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 240, 245, 0.5);
+            backdrop-filter: blur(5px);
+        }
+
+        .thank-you-modal-content {
+            position: relative;
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(20px);
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            padding: 30px;
+            max-width: 90vw;
+            max-height: 90vh;
+            width: 1200px;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.2);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .thank-you-modal-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .thank-you-modal-header h2 {
+            color: #d66d75;
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .thank-you-modal-header p {
+            color: #7a4a4f;
+            font-size: 1rem;
+        }
+
+        /* Preview Section */
+        /* Reuse selected-template-box styles */
+        .thank-you-preview-container .selected-template-box {
+            border-radius: 10px;
+            padding: 10px;
+            border: 1px solid rgba(255, 154, 158, 0.3);
+        }
+
+        .thank-you-preview-container .label {
+            font-size: 0.7rem;
+            color: #7a4a4f;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: bold;
+        }
+
+        .thank-you-preview-container .preview {
+            aspect-ratio: 16/9;
+            border-radius: 6px;
+            background-size: cover;
+            background-position: center;
+            background-color: #f5f5f5;
+            border: 2px solid #ff9a9e;
+        }
+
+        .thank-you-preview-container .no-selection {
+            aspect-ratio: 16/9;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 0.75rem;
+            border: 2px dashed rgba(255, 154, 158, 0.3);
+        }
+    </style>
+
+    <script>
+        /* Mobile Responsive Scaling for Slide Canvas */
+        function resizeSlideCanvas() {
+            const canvas = document.querySelector('.slide-canvas');
+            const stage = document.querySelector('.slide-stage');
+            if (!canvas || !stage) return;
+
+            // Only scale if screen is small
+            if (window.innerWidth <= 768) {
+                const padding = 30; // safe margin on sides
+                const availableWidth = window.innerWidth - padding;
+                const baseWidth = 800; // Original canvas width
+
+                const scale = Math.min(availableWidth / baseWidth, 1);
+
+                canvas.style.transform = `scale(${scale})`;
+                // Set the canvas wrapper height to the scaled height so
+                // elements below don't overlap the scaled canvas
+                const scaledHeight = 450 * scale;
+                canvas.style.marginBottom = `-${450 - scaledHeight}px`;
+            } else {
+                // Reset on desktop
+                canvas.style.transform = 'none';
+                canvas.style.marginBottom = '';
+            }
+        }
+
+        // Run on load and resize
+        window.addEventListener('load', resizeSlideCanvas);
+        window.addEventListener('resize', resizeSlideCanvas);
+        // Also run when slide is rendered/updated
+        // Assuming updateSlideDisplay is defined elsewhere and accessible
+        // If updateSlideDisplay is not globally accessible or defined later, this might need adjustment.
+        if (typeof updateSlideDisplay !== 'undefined') {
+            const originalUpdateDisplay = updateSlideDisplay;
+            updateSlideDisplay = function () {
+                originalUpdateDisplay();
+                setTimeout(resizeSlideCanvas, 10); // Check after render
+            };
+        } else {
+            console.warn("updateSlideDisplay function not found. Responsive canvas scaling on slide update might not work.");
+        }
+    </script>
+
+    <style>
+        /* Gallery Container for Centering */
+        /* Gallery Container */
+        .thank-you-gallery-container {
+            min-height: 400px;
+            width: 100%;
+        }
+
+        /* Ensure gallery takes full width */
+        .thank-you-gallery {
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            padding: 10px;
+        }
+
+        .thank-you-modal-body {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+
+        .thank-you-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            padding: 10px;
+        }
+
+        .thank-you-gallery-item {
+            position: relative;
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 3px solid transparent;
+        }
+
+        .thank-you-gallery-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(255, 154, 158, 0.5);
+        }
+
+        .thank-you-gallery-item.selected {
+            border-color: #ff758c;
+            box-shadow: 0 0 20px rgba(255, 117, 140, 0.8);
+        }
+
+        .thank-you-gallery-item img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .thank-you-loading {
+            text-align: center;
+            color: #d66d75;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            min-height: 300px;
+            grid-column: 1 / -1;
+        }
+
+        .thank-you-loading i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+
+        .thank-you-modal-footer {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .thank-you-btn {
+            padding: 10px 25px;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        /* Match "Skip" button from login screen */
+        .skip-btn {
+            background: transparent;
+            color: #d66d75;
+            border: 1px solid #d66d75;
+        }
+
+        .skip-btn:hover {
+            background: rgba(214, 109, 117, 0.1);
+        }
+
+        /* Match "Set Name" button from login screen (Gradient) */
+        .continue-btn {
+            border: none;
+            background: linear-gradient(to right, #ff9a9e, #fad0c4);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(255, 154, 158, 0.4);
+        }
+
+        .continue-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 154, 158, 0.6);
+        }
+    </style>
+
+    <script>
+        let selectedThankYouImageUrl = null;
+        let thankYouModalResolve = null;
+
+        function showThankYouImageSelector() {
+            return new Promise((resolve) => {
+                thankYouModalResolve = resolve;
+                const modal = document.getElementById('thankYouModal');
+                modal.style.display = 'flex';
+
+                // Update preview if image already selected
+                updateThankYouPreview();
+
+                // If images already loaded and selection exists, just display
+                const gallery = document.getElementById('thankYouGallery');
+                if (gallery.children.length > 1) {
+                    // Already loaded, just show the modal
+                    return;
+                }
+
+                // Fetch images from Pexels
+                fetch('/api/pexels/thank-you-images')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.images) {
+                            displayThankYouImages(data.images);
+                        } else {
+                            console.error('Failed to fetch images');
+                            resolve(null);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching Thank You images:', error);
+                        resolve(null);
+                    });
+            });
+        }
+
+        function displayThankYouImages(images) {
+            const gallery = document.getElementById('thankYouGallery');
+            gallery.innerHTML = '';
+
+            images.forEach((image, index) => {
+                const item = document.createElement('div');
+                item.className = 'thank-you-gallery-item';
+                item.dataset.imageUrl = image.url;
+
+                // If this was previously selected, mark it
+                if (selectedThankYouImageUrl === image.url) {
+                    item.classList.add('selected');
+                }
+
+                item.onclick = () => selectThankYouImage(item, image.url);
+
+                const img = document.createElement('img');
+                img.src = image.thumb_url;
+                img.alt = image.alt;
+                img.loading = 'lazy';
+
+                item.appendChild(img);
+                gallery.appendChild(item);
+            });
+        }
+
+        function selectThankYouImage(element, imageUrl) {
+            // Remove previous selection
+            document.querySelectorAll('.thank-you-gallery-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+
+            // Mark as selected
+            element.classList.add('selected');
+            selectedThankYouImageUrl = imageUrl;
+
+            // Update preview at top
+            updateThankYouPreview();
+
+            // No auto-close - wait for Continue button
+        }
+
+        function confirmThankYouSelection() {
+            closeThankYouModal();
+            // Refresh the slide canvas to show the selected image
+            if (currentSlideIndex >= slides.length) {
+                updateSlideDisplay();
+            }
+            if (thankYouModalResolve) {
+                thankYouModalResolve(selectedThankYouImageUrl);
+            }
+        }
+
+
+        function skipThankYouSelection() {
+            selectedThankYouImageUrl = null;
+            closeThankYouModal();
+            if (thankYouModalResolve) {
+                thankYouModalResolve(null);
+            }
+        }
+
+        function closeThankYouModal() {
+            document.getElementById('thankYouModal').style.display = 'none';
+        }
+
+        function updateThankYouPreview() {
+            const previewBox = document.getElementById('thankYouPreviewBox');
+
+            if (selectedThankYouImageUrl) {
+                previewBox.className = 'preview';
+                previewBox.style.backgroundImage = `url(${selectedThankYouImageUrl})`;
+                previewBox.textContent = '';
+            } else {
+                previewBox.className = 'no-selection';
+                previewBox.style.backgroundImage = 'none';
+                previewBox.textContent = 'No image selected';
+            }
+        }
+    </script>
+
+
+
+    <!-- Mobile Drawer Logic -->
+    <script>
+        function toggleLeftDrawer() {
+            const sidebar = document.querySelector('.slide-sidebar');
+            const toggle = document.getElementById('leftDrawerToggle');
+            const overlay = document.getElementById('drawerOverlay');
+            const rightSidebar = document.querySelector('.options-sidebar');
+            const rightToggle = document.getElementById('rightDrawerToggle');
+
+            // Close right drawer if open
+            rightSidebar.classList.remove('drawer-open');
+            rightToggle.classList.remove('drawer-active');
+            rightToggle.querySelector('i').className = 'fas fa-palette';
+
+            const isOpen = sidebar.classList.toggle('drawer-open');
+            toggle.classList.toggle('drawer-active', isOpen);
+            overlay.classList.toggle('active', isOpen);
+            toggle.querySelector('i').className = isOpen ? 'fas fa-times' : 'fas fa-bars';
+        }
+
+        function toggleRightDrawer() {
+            const sidebar = document.querySelector('.options-sidebar');
+            const toggle = document.getElementById('rightDrawerToggle');
+            const overlay = document.getElementById('drawerOverlay');
+            const leftSidebar = document.querySelector('.slide-sidebar');
+            const leftToggle = document.getElementById('leftDrawerToggle');
+
+            // Close left drawer if open
+            leftSidebar.classList.remove('drawer-open');
+            leftToggle.classList.remove('drawer-active');
+            leftToggle.querySelector('i').className = 'fas fa-bars';
+
+            const isOpen = sidebar.classList.toggle('drawer-open');
+            toggle.classList.toggle('drawer-active', isOpen);
+            overlay.classList.toggle('active', isOpen);
+            toggle.querySelector('i').className = isOpen ? 'fas fa-times' : 'fas fa-palette';
+        }
+
+        function closeAllDrawers() {
+            const leftSidebar = document.querySelector('.slide-sidebar');
+            const rightSidebar = document.querySelector('.options-sidebar');
+            const leftToggle = document.getElementById('leftDrawerToggle');
+            const rightToggle = document.getElementById('rightDrawerToggle');
+            const overlay = document.getElementById('drawerOverlay');
+
+            if (leftSidebar) leftSidebar.classList.remove('drawer-open');
+            if (rightSidebar) rightSidebar.classList.remove('drawer-open');
+            if (leftToggle) {
+                leftToggle.classList.remove('drawer-active');
+                leftToggle.querySelector('i').className = 'fas fa-bars';
+            }
+            if (rightToggle) {
+                rightToggle.classList.remove('drawer-active');
+                rightToggle.querySelector('i').className = 'fas fa-palette';
+            }
+            if (overlay) overlay.classList.remove('active');
+        }
+
+        // Close drawers on window resize to desktop
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 768) {
+                closeAllDrawers();
+            }
+        });
+
+        // Close drawer when a slide is selected (mobile)
+        const origJumpToSlide = jumpToSlide;
+        jumpToSlide = function(i) {
+            origJumpToSlide(i);
+            if (window.innerWidth <= 768) {
+                closeAllDrawers();
+            }
+        };
+    </script>
+
+    <!-- Audio Player -->
+    <audio id="bgAudio" loop>
+        <source src="{{ url_for('static', filename='audio/cassandra_bg.mp3') }}" type="audio/mpeg">
+    </audio>
+
+    <div class="audio-control" id="audioControl" onclick="toggleAudio()">
+        <i class="fas fa-volume-up"></i>
+    </div>
+
+    <style>
+        .audio-control {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 10001;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            color: #d66d75;
+        }
+
+        .audio-control:hover {
+            transform: scale(1.1);
+            background: rgba(255, 255, 255, 0.4);
+        }
+    </style>
+
+    <script>
+        (function () {
+            const audio = document.getElementById('bgAudio');
+            const btn = document.getElementById('audioControl');
+            const icon = btn.querySelector('i');
+
+            // 1. Immediate State Restoration
+            const isMuted = localStorage.getItem('cassandra_audio_muted') === 'true';
+            const savedTime = parseFloat(localStorage.getItem('cassandra_audio_time')) || 0;
+
+            if (savedTime) audio.currentTime = savedTime;
+            audio.muted = isMuted;
+            updateIcon(); // Initial icon state
+
+            // 2. Play Function with Retry
+            function attemptPlay() {
+                const playPromise = audio.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        console.warn("Autoplay / Resume blocked:", error);
+                        // Unlock on ANY interaction
+                        const unlock = () => {
+                            audio.play();
+                            document.removeEventListener('click', unlock);
+                            document.removeEventListener('touchstart', unlock);
+                            document.removeEventListener('keydown', unlock);
+                        };
+                        document.addEventListener('click', unlock, { once: true });
+                        document.addEventListener('touchstart', unlock, { once: true });
+                        document.addEventListener('keydown', unlock, { once: true });
+                    });
+                }
+            }
+
+            // Try to play immediately
+            if (!audio.paused) return; // Already playing
+            attemptPlay();
+
+            // 3. Persistence
+            window.addEventListener('beforeunload', () => {
+                localStorage.setItem('cassandra_audio_time', audio.currentTime);
+            });
+
+            // Save frequently in case of crash/unexpected close
+            setInterval(() => {
+                if (!audio.paused) {
+                    localStorage.setItem('cassandra_audio_time', audio.currentTime);
+                }
+            }, 1000);
+
+            // 4. Bfcache / Back Button Support
+            window.addEventListener('pageshow', (event) => {
+                if (event.persisted) {
+                    // Page restored from cache
+                    const reTime = parseFloat(localStorage.getItem('cassandra_audio_time')) || 0;
+                    if (reTime) audio.currentTime = reTime;
+                    attemptPlay();
+
+                    // Fix for possible loading overlay persistence (only on back navigation)
+                    const overlay = document.getElementById('loadingOverlay');
+                    if (overlay) overlay.classList.remove('active');
+                }
+            });
+
+            // 5. Controls
+            window.toggleAudio = function () {
+                audio.muted = !audio.muted;
+                localStorage.setItem('cassandra_audio_muted', audio.muted);
+                updateIcon();
+            }
+
+            function updateIcon() {
+                if (audio.muted) {
+                    icon.className = 'fas fa-volume-mute';
+                    btn.style.background = 'rgba(255, 255, 255, 0.1)';
+                } else {
+                    icon.className = 'fas fa-volume-up';
+                    btn.style.background = 'rgba(255, 255, 255, 0.25)';
+                }
+            }
+        })();
+    </script>
+</body>
+
+</html>
