@@ -22,3 +22,6 @@ aiohttp>=3.9.0
 
 # Other utilities
 pathlib2>=2.3.7
+
+# Production Server
+gunicorn>=21.2.0
