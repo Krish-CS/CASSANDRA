@@ -1037,6 +1037,7 @@ body {
    RESPONSIVE: MOBILE (max-width: 768px)
    ========================================= */
 @media (max-width: 768px) {
+
     /* --- Global --- */
     body {
         overflow-x: hidden;
@@ -1075,10 +1076,8 @@ body {
 
     .nav-user span {
         font-size: 0.8rem !important;
-        max-width: 120px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        max-width: none;
+        white-space: normal;
     }
 
     .user-dropdown {
@@ -1493,7 +1492,8 @@ body {
 
     .nav-user span {
         font-size: 0.7rem !important;
-        max-width: 80px;
+        max-width: none;
+        white-space: normal;
     }
 
     .hero-section h1 {

@@ -796,12 +796,14 @@
         <div class="drawer-overlay" id="drawerOverlay" onclick="closeAllDrawers()"></div>
 
         <!-- Left Drawer Toggle (mobile) -->
-        <button class="drawer-toggle drawer-toggle-left" id="leftDrawerToggle" onclick="toggleLeftDrawer()" aria-label="Toggle slides panel">
+        <button class="drawer-toggle drawer-toggle-left" id="leftDrawerToggle" onclick="toggleLeftDrawer()"
+            aria-label="Toggle slides panel">
             <i class="fas fa-bars"></i>
         </button>
 
         <!-- Right Drawer Toggle (mobile) -->
-        <button class="drawer-toggle drawer-toggle-right" id="rightDrawerToggle" onclick="toggleRightDrawer()" aria-label="Toggle backgrounds panel">
+        <button class="drawer-toggle drawer-toggle-right" id="rightDrawerToggle" onclick="toggleRightDrawer()"
+            aria-label="Toggle backgrounds panel">
             <i class="fas fa-palette"></i>
         </button>
 
@@ -2257,7 +2259,7 @@
 
         // Close drawer when a slide is selected (mobile)
         const origJumpToSlide = jumpToSlide;
-        jumpToSlide = function(i) {
+        jumpToSlide = function (i) {
             origJumpToSlide(i);
             if (window.innerWidth <= 768) {
                 closeAllDrawers();
@@ -2324,14 +2326,14 @@
                         console.warn("Autoplay / Resume blocked:", error);
                         // Unlock on ANY interaction
                         const unlock = () => {
-                            audio.play();
-                            document.removeEventListener('click', unlock);
-                            document.removeEventListener('touchstart', unlock);
-                            document.removeEventListener('keydown', unlock);
+                            audio.play().catch(() => { });
+                            document.body.removeEventListener('click', unlock, true);
+                            document.body.removeEventListener('touchstart', unlock, true);
+                            document.body.removeEventListener('touchend', unlock, true);
                         };
-                        document.addEventListener('click', unlock, { once: true });
-                        document.addEventListener('touchstart', unlock, { once: true });
-                        document.addEventListener('keydown', unlock, { once: true });
+                        document.body.addEventListener('click', unlock, { capture: true, once: true });
+                        document.body.addEventListener('touchstart', unlock, { capture: true, once: true });
+                        document.body.addEventListener('touchend', unlock, { capture: true, once: true });
                     });
                 }
             }

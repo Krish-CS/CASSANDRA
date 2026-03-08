@@ -275,14 +275,14 @@
                         console.warn("Autoplay / Resume blocked:", error);
                         // Unlock on ANY interaction
                         const unlock = () => {
-                            audio.play();
-                            document.removeEventListener('click', unlock);
-                            document.removeEventListener('touchstart', unlock);
-                            document.removeEventListener('keydown', unlock);
+                            audio.play().catch(() => { });
+                            document.body.removeEventListener('click', unlock, true);
+                            document.body.removeEventListener('touchstart', unlock, true);
+                            document.body.removeEventListener('touchend', unlock, true);
                         };
-                        document.addEventListener('click', unlock, { once: true });
-                        document.addEventListener('touchstart', unlock, { once: true });
-                        document.addEventListener('keydown', unlock, { once: true });
+                        document.body.addEventListener('click', unlock, { capture: true, once: true });
+                        document.body.addEventListener('touchstart', unlock, { capture: true, once: true });
+                        document.body.addEventListener('touchend', unlock, { capture: true, once: true });
                     });
                 }
             }
