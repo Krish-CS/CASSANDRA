@@ -11,7 +11,7 @@ import re
 import requests
 import json
 
-load_dotenv('.env.ppt')
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '.env.ppt'))
 
 logger = logging.getLogger(__name__)
 
