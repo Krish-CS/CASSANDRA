@@ -407,66 +407,61 @@
             const btn = document.getElementById('audioControl');
             const icon = btn.querySelector('i');
 
-            // 1. Immediate State Restoration
+            // Restore state
             const isMuted = localStorage.getItem('cassandra_audio_muted') === 'true';
             const savedTime = parseFloat(localStorage.getItem('cassandra_audio_time')) || 0;
-
             if (savedTime) audio.currentTime = savedTime;
             audio.muted = isMuted;
-            updateIcon(); // Initial icon state
+            updateIcon();
 
-            // 2. Play Function with Retry
+            let unlocked = false;
+
             function attemptPlay() {
-                const playPromise = audio.play();
-                if (playPromise !== undefined) {
-                    playPromise.catch(error => {
-                        console.warn("Autoplay / Resume blocked:", error);
-                        // Unlock on ANY interaction
-                        const unlock = () => {
-                            audio.play().catch(() => { });
-                            document.body.removeEventListener('click', unlock, true);
-                            document.body.removeEventListener('touchstart', unlock, true);
-                            document.body.removeEventListener('touchend', unlock, true);
-                        };
-                        document.body.addEventListener('click', unlock, { capture: true, once: true });
-                        document.body.addEventListener('touchstart', unlock, { capture: true, once: true });
-                        document.body.addEventListener('touchend', unlock, { capture: true, once: true });
+                if (audio.muted) return;
+                audio.play().then(() => { unlocked = true; }).catch(() => { });
+            }
+
+            // iOS / Mobile Safari robust unlock
+            function onFirstInteraction() {
+                if (unlocked) return;
+                try {
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    ctx.resume().then(() => {
+                        audio.play().then(() => { unlocked = true; }).catch(() => { });
                     });
+                } catch (e) {
+                    audio.play().then(() => { unlocked = true; }).catch(() => { });
                 }
             }
 
-            // Try to play immediately
-            if (!audio.paused) return; // Already playing
+            document.addEventListener('touchstart', onFirstInteraction, { capture: true, passive: true });
+            document.addEventListener('touchend', onFirstInteraction, { capture: true, passive: true });
+            document.addEventListener('click', onFirstInteraction, { capture: true });
+            document.addEventListener('keydown', onFirstInteraction, { capture: true });
+
             attemptPlay();
 
-            // 3. Persistence
             window.addEventListener('beforeunload', () => {
                 localStorage.setItem('cassandra_audio_time', audio.currentTime);
             });
-
-            // Save frequently in case of crash/unexpected close
             setInterval(() => {
-                if (!audio.paused) {
-                    localStorage.setItem('cassandra_audio_time', audio.currentTime);
-                }
+                if (!audio.paused) localStorage.setItem('cassandra_audio_time', audio.currentTime);
             }, 1000);
 
-            // 4. Bfcache / Back Button Support
             window.addEventListener('pageshow', (event) => {
                 if (event.persisted) {
-                    // Page restored from cache
-                    const reTime = parseFloat(localStorage.getItem('cassandra_audio_time')) || 0;
-                    if (reTime) audio.currentTime = reTime;
+                    const t = parseFloat(localStorage.getItem('cassandra_audio_time')) || 0;
+                    if (t) audio.currentTime = t;
                     attemptPlay();
                 }
             });
 
-            // 5. Controls
             window.toggleAudio = function () {
                 audio.muted = !audio.muted;
+                if (!audio.muted) attemptPlay();
                 localStorage.setItem('cassandra_audio_muted', audio.muted);
                 updateIcon();
-            }
+            };
 
             function updateIcon() {
                 if (audio.muted) {
