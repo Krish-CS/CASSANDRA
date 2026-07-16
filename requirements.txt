@@ -1,0 +1,24 @@
+#Cassandra AI PPT Generator - Requirements
+
+# Web Framework
+Flask>=3.0.0
+Werkzeug>=3.0.0
+
+# PPT Generation
+python-pptx>=0.6.21
+Pillow>=10.0.0
+
+# AI Integration (for slide content generation)
+groq>=0.15.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# HTTP requests (for Pexels API and AI APIs)
+requests>=2.31.0
+
+# Async Support
+aiohttp>=3.9.0
+
+# Other utilities
+pathlib2>=2.3.7

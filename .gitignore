@@ -1,0 +1,7 @@
+.env
+.env.ppt
+output/
+__pycache__/
+*.pyc
+.vscode/
+.idea/
