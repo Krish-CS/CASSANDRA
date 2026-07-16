@@ -55,6 +55,11 @@ def logout():
 # API ENDPOINTS
 # ============================================================================
 
+@app.route('/ping')
+def ping():
+    """Health check route for deployment platforms like Render"""
+    return "OK", 200
+
 @app.route('/api/templates')
 def get_templates():
     """
