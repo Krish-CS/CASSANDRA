@@ -189,6 +189,21 @@
             gap: 8px;
             font-size: 0.8rem;
             color: #7a4a4f;
+            border: 2px solid transparent;
+        }
+
+        .topic-item.dragging {
+            opacity: 0.4;
+            border: 2px dashed #ff9a9e !important;
+            background: rgba(255, 154, 158, 0.15) !important;
+        }
+
+        .topic-item.drag-over-above {
+            border-top: 3px solid #ff758c !important;
+        }
+
+        .topic-item.drag-over-below {
+            border-bottom: 3px solid #ff758c !important;
         }
 
         .topic-item:hover {
@@ -198,6 +213,8 @@
         .topic-item.active {
             background: linear-gradient(90deg, #ff9a9e 0%, #fecfef 100%);
             color: white;
+            border-left: none;
+            border-right: 4px solid #ff758c;
         }
 
         .topic-item .slide-num {
@@ -499,13 +516,19 @@
             color: white;
         }
 
-        /* Template Grid */
         .template-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 8px;
-            max-height: 180px;
+            gap: 10px;
+            max-height: 420px;
             overflow-y: auto;
+            padding-right: 5px;
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+
+        .template-grid::-webkit-scrollbar {
+            display: none;  /* Safari and Chrome */
         }
 
         .template-thumb {
@@ -517,6 +540,7 @@
             background-size: cover;
             background-position: center;
             background-color: #eee;
+            position: relative;
         }
 
         .template-thumb:hover {
@@ -539,7 +563,7 @@
         .bullet-options {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 6px;
+            gap: 4px;
             margin-bottom: 8px;
         }
 
@@ -547,7 +571,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 8px 4px;
+            padding: 6px 2px;
             background: rgba(255, 255, 255, 0.3);
             border-radius: 8px;
             cursor: pointer;
@@ -576,6 +600,7 @@
             font-size: 0.6rem;
             color: #7a4a4f;
             margin-top: 2px;
+            text-align: center;
         }
 
         .show-more-btn {
@@ -599,6 +624,7 @@
             max-height: 150px;
             overflow-y: auto;
             margin-top: 8px;
+            padding-right: 10px;
         }
 
         .more-bullets.show {
@@ -857,13 +883,6 @@
         <aside class="options-sidebar">
             <h3><i class="fas fa-image"></i> Background</h3>
 
-            <!-- Currently Selected Template -->
-            <div class="selected-template-box">
-                <div class="label">Current Background</div>
-                <div id="selectedTemplatePreview" class="no-selection">No background</div>
-            </div>
-
-
             <!-- Search Box -->
             <div class="template-search">
                 <input type="text" id="templateSearchInput" placeholder="Search themes...">
@@ -872,6 +891,7 @@
 
             <!-- Template Categories -->
             <div class="template-category-row" id="categoryRow">
+                <button class="template-category-btn" id="currentBgBtn" style="white-space: nowrap;">Current Background</button>
                 <button class="template-category-btn active" data-query="abstract background">Abstract</button>
                 <button class="template-category-btn" data-query="nature landscape">Nature</button>
                 <button class="template-category-btn" data-query="gradient colors">Gradient</button>
@@ -1391,8 +1411,15 @@
             slides.forEach((slide, i) => {
                 const li = document.createElement('li');
                 li.className = `topic-item ${i === currentSlideIndex ? 'active' : ''}`;
+                li.setAttribute('draggable', 'true');
+                li.setAttribute('data-index', i);
                 li.innerHTML = `<span class="slide-num">${i + 1}</span><span>${slide.title.length > 20 ? slide.title.substring(0, 20) + '...' : slide.title}</span>`;
                 li.onclick = () => jumpToSlide(i);
+                
+                // Add drag and touch reordering
+                setupDragEvents(li);
+                setupTouchDragEvents(li);
+
                 list.appendChild(li);
             });
 
@@ -1510,11 +1537,11 @@
                     updateSlideDisplay();
                     console.log('Slide refined successfully');
                 } else {
-                    alert('Failed to refine slide: ' + (data.error || 'Unknown error'));
+                    showCustomAlert('Failed to Refine', data.error || 'Unknown error', true);
                 }
             } catch (error) {
                 console.error('Refine error:', error);
-                alert('Failed to refine slide. Please try again.');
+                showCustomAlert('Failed to Refine', 'Please try again.', true);
             }
 
             document.getElementById('loadingOverlay').classList.remove('active');
@@ -1551,7 +1578,7 @@
                 }
             } catch (error) {
                 console.error('Regenerate error:', error);
-                alert('Failed to regenerate slides. Please try again.');
+                showCustomAlert('Regeneration Failed', 'Failed to regenerate slides. Please try again.', true);
             }
 
             document.getElementById('loadingOverlay').classList.remove('active');
@@ -1565,9 +1592,52 @@
                 btn.onclick = () => {
                     document.querySelectorAll('.template-category-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
-                    loadTemplates(btn.dataset.query);
+                    if (btn.id === 'currentBgBtn') {
+                        showCurrentBgInGrid();
+                    } else {
+                        loadTemplates(btn.dataset.query);
+                    }
                 };
             });
+        }
+
+        // Show currently selected background in grid with Default button
+        function showCurrentBgInGrid() {
+            const grid = document.getElementById('templateGrid');
+            grid.innerHTML = '';
+
+            // Default/Clear Card
+            const clearThumb = document.createElement('div');
+            clearThumb.className = `template-thumb ${!currentBackgroundUrl ? 'selected' : ''}`;
+            
+            // Set styles explicitly with !important to prevent overrides
+            clearThumb.style.setProperty('background', 'rgba(255, 255, 255, 0.2)', 'important');
+            clearThumb.style.setProperty('background-image', 'none', 'important');
+            clearThumb.style.setProperty('border', '2px dashed rgba(255, 154, 158, 0.6)', 'important');
+            clearThumb.style.setProperty('display', 'flex', 'important');
+            clearThumb.style.setProperty('align-items', 'center', 'important');
+            clearThumb.style.setProperty('justify-content', 'center', 'important');
+            
+            clearThumb.innerHTML = '<span style="color:#d66d75;font-weight:600;font-size:0.75rem;"><i class="fas fa-ban"></i> Default (None)</span>';
+            clearThumb.onclick = () => {
+                currentBackgroundUrl = '';
+                applyBackground('');
+                // Redraw to remove any active template cards cleanly and update default selected border
+                showCurrentBgInGrid();
+            };
+            grid.appendChild(clearThumb);
+
+            // Active Background Card
+            if (currentBackgroundUrl) {
+                const thumb = document.createElement('div');
+                thumb.className = 'template-thumb selected';
+                thumb.style.backgroundImage = `url(${currentBackgroundUrl})`;
+                thumb.onclick = () => {
+                    // Already selected, clicking it does nothing
+                };
+                thumb.title = 'Current Selected Background';
+                grid.appendChild(thumb);
+            }
         }
 
         // Search templates
@@ -1585,7 +1655,6 @@
             grid.innerHTML = '<p style="color:#999;font-size:0.7rem;grid-column:1/-1;text-align:center;">Loading...</p>';
 
             fetch(`/api/templates?query=${encodeURIComponent(query)}&count=30`)
-
                 .then(res => res.json())
                 .then(data => {
                     grid.innerHTML = '';
@@ -1612,11 +1681,12 @@
             applyBackground(url);
             updateSelectedPreview(thumbUrl);
             document.querySelectorAll('.template-thumb').forEach(t => t.classList.remove('selected'));
-            el.classList.add('selected');
+            if (el) el.classList.add('selected');
         }
 
         function updateSelectedPreview(url) {
             const preview = document.getElementById('selectedTemplatePreview');
+            if (!preview) return; // Safeguard if element is removed
             if (url) {
                 preview.className = 'preview';
                 preview.style.backgroundImage = `url(${url})`;
@@ -1626,6 +1696,180 @@
                 preview.style.backgroundImage = 'none';
                 preview.textContent = 'No background';
             }
+        }
+
+        // ==========================================
+        // SLIDE DRAG & TOUCH REORDERING FUNCTIONS
+        // ==========================================
+        let draggedIndex = null;
+        let touchStartTimer = null;
+        let isTouchDragging = false;
+
+        function setupDragEvents(li) {
+            li.addEventListener('dragstart', (e) => {
+                draggedIndex = parseInt(li.getAttribute('data-index'));
+                li.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', draggedIndex);
+            });
+
+            li.addEventListener('dragend', () => {
+                li.classList.remove('dragging');
+                document.querySelectorAll('.topic-item').forEach(item => {
+                    item.classList.remove('drag-over-above');
+                    item.classList.remove('drag-over-below');
+                });
+            });
+
+            li.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                const targetIndex = parseInt(li.getAttribute('data-index'));
+                if (targetIndex === draggedIndex) return;
+
+                const rect = li.getBoundingClientRect();
+                const relativeY = e.clientY - rect.top;
+                const isAbove = relativeY < rect.height / 2;
+
+                document.querySelectorAll('.topic-item').forEach(item => {
+                    item.classList.remove('drag-over-above');
+                    item.classList.remove('drag-over-below');
+                });
+
+                if (isAbove) {
+                    li.classList.add('drag-over-above');
+                } else {
+                    li.classList.add('drag-over-below');
+                }
+            });
+
+            li.addEventListener('dragleave', () => {
+                li.classList.remove('drag-over-above');
+                li.classList.remove('drag-over-below');
+            });
+
+            li.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const targetIndex = parseInt(li.getAttribute('data-index'));
+                if (targetIndex === draggedIndex) return;
+
+                const rect = li.getBoundingClientRect();
+                const relativeY = e.clientY - rect.top;
+                const isAbove = relativeY < rect.height / 2;
+
+                const draggedSlide = slides.splice(draggedIndex, 1)[0];
+                
+                let newIndex = targetIndex;
+                if (!isAbove && targetIndex > draggedIndex) {
+                    newIndex = targetIndex;
+                } else if (!isAbove && targetIndex < draggedIndex) {
+                    newIndex = targetIndex + 1;
+                } else if (isAbove && targetIndex > draggedIndex) {
+                    newIndex = targetIndex - 1;
+                }
+                
+                slides.splice(newIndex, 0, draggedSlide);
+
+                if (currentSlideIndex === draggedIndex) {
+                    currentSlideIndex = newIndex;
+                } else if (currentSlideIndex > draggedIndex && currentSlideIndex <= newIndex) {
+                    currentSlideIndex--;
+                } else if (currentSlideIndex < draggedIndex && currentSlideIndex >= newIndex) {
+                    currentSlideIndex++;
+                }
+
+                renderSlideList();
+                updateSlideDisplay();
+            });
+        }
+
+        function setupTouchDragEvents(li) {
+            li.addEventListener('touchstart', (e) => {
+                const index = parseInt(li.getAttribute('data-index'));
+                draggedIndex = index;
+                
+                if (touchStartTimer) clearTimeout(touchStartTimer);
+                
+                touchStartTimer = setTimeout(() => {
+                    isTouchDragging = true;
+                    li.classList.add('dragging');
+                }, 400);
+            }, { passive: true });
+
+            li.addEventListener('touchmove', (e) => {
+                if (!isTouchDragging) {
+                    clearTimeout(touchStartTimer);
+                    return;
+                }
+                
+                e.preventDefault();
+
+                const touch = e.touches[0];
+                const elementUnderTouch = document.elementFromPoint(touch.clientX, touch.clientY);
+                if (!elementUnderTouch) return;
+
+                const targetLi = elementUnderTouch.closest('.topic-item');
+                if (targetLi && targetLi !== li && !targetLi.classList.contains('thank-you-slide-item')) {
+                    const rect = targetLi.getBoundingClientRect();
+                    const relativeY = touch.clientY - rect.top;
+                    const isAbove = relativeY < rect.height / 2;
+
+                    document.querySelectorAll('.topic-item').forEach(item => {
+                        item.classList.remove('drag-over-above');
+                        item.classList.remove('drag-over-below');
+                    });
+
+                    if (isAbove) {
+                        targetLi.classList.add('drag-over-above');
+                    } else {
+                        targetLi.classList.add('drag-over-below');
+                    }
+                }
+            }, { passive: false });
+
+            li.addEventListener('touchend', () => {
+                clearTimeout(touchStartTimer);
+                if (!isTouchDragging) return;
+
+                isTouchDragging = false;
+                li.classList.remove('dragging');
+
+                const dragOverAbove = document.querySelector('.drag-over-above');
+                const dragOverBelow = document.querySelector('.drag-over-below');
+                const targetLi = dragOverAbove || dragOverBelow;
+                
+                document.querySelectorAll('.topic-item').forEach(item => {
+                    item.classList.remove('drag-over-above');
+                    item.classList.remove('drag-over-below');
+                });
+
+                if (targetLi && targetLi !== li && !targetLi.classList.contains('thank-you-slide-item')) {
+                    const targetIndex = parseInt(targetLi.getAttribute('data-index'));
+                    const isAbove = !!dragOverAbove;
+
+                    const draggedSlide = slides.splice(draggedIndex, 1)[0];
+                    let newIndex = targetIndex;
+                    if (!isAbove && targetIndex > draggedIndex) {
+                        newIndex = targetIndex;
+                    } else if (!isAbove && targetIndex < draggedIndex) {
+                        newIndex = targetIndex + 1;
+                    } else if (isAbove && targetIndex > draggedIndex) {
+                        newIndex = targetIndex - 1;
+                    }
+
+                    slides.splice(newIndex, 0, draggedSlide);
+
+                    if (currentSlideIndex === draggedIndex) {
+                        currentSlideIndex = newIndex;
+                    } else if (currentSlideIndex > draggedIndex && currentSlideIndex <= newIndex) {
+                        currentSlideIndex--;
+                    } else if (currentSlideIndex < draggedIndex && currentSlideIndex >= newIndex) {
+                        currentSlideIndex++;
+                    }
+
+                    renderSlideList();
+                    updateSlideDisplay();
+                }
+            });
         }
 
         function applyBackground(url) {
@@ -1716,7 +1960,7 @@
                 .catch(error => {
                     overlay.classList.remove('active');
                     console.error('Download error:', error);
-                    alert('Error: ' + error.message);
+                    showCustomAlert('Download Failed', error.message, true);
                 });
         }
     </script>
@@ -2383,7 +2627,41 @@
                 }
             }
         })();
+
+        // Custom Glassmorphism Alert Dialog Functions
+        window.showCustomAlert = function (title, message, isError = false) {
+            document.getElementById('customAlertTitle').textContent = title;
+            document.getElementById('customAlertMessage').innerHTML = message;
+            const icon = document.getElementById('customAlertIcon');
+            if (isError) {
+                icon.className = 'fas fa-exclamation-triangle';
+                icon.style.color = '#ff4d6d';
+                icon.parentElement.style.background = 'rgba(255, 77, 109, 0.2)';
+            } else {
+                icon.className = 'fas fa-info-circle';
+                icon.style.color = '#ff758c';
+                icon.parentElement.style.background = 'rgba(255, 154, 158, 0.2)';
+            }
+            document.getElementById('customAlertModal').classList.add('active');
+        };
+
+        window.closeCustomAlert = function () {
+            document.getElementById('customAlertModal').classList.remove('active');
+        };
     </script>
+    <!-- Custom Glassmorphism Alert Modal -->
+    <div id="customAlertModal" class="modal-overlay" style="z-index: 11000;">
+        <div class="glass-card modal-content" style="width: 90%; max-width: 450px; padding: 30px; text-align: center; animation: zoomIn 0.3s ease;">
+            <div style="width: 50px; height: 50px; background: rgba(255, 154, 158, 0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px;">
+                <i class="fas fa-info-circle" id="customAlertIcon" style="color: #ff758c; font-size: 1.3rem;"></i>
+            </div>
+            <h3 id="customAlertTitle" style="color: #d66d75; margin-bottom: 10px; font-family: 'Poppins', sans-serif;">Notification</h3>
+            <p id="customAlertMessage" style="color: #7a4a4f; margin-bottom: 25px; line-height: 1.5; font-size: 0.95rem;">Message goes here...</p>
+            <button onclick="closeCustomAlert()" style="padding: 10px 30px; border-radius: 50px; border: none; background: linear-gradient(to right, #ff9a9e, #fad0c4); color: white; font-weight: 600; cursor: pointer; box-shadow: 0 4px 15px rgba(255, 154, 158, 0.4); transition: transform 0.2s;">
+                OK
+            </button>
+        </div>
+    </div>
 </body>
 
 </html>

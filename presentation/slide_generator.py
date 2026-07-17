@@ -11,7 +11,9 @@ import re
 import requests
 import json
 
-load_dotenv('.env.ppt')
+# Load environment variables from .env.ppt using absolute path relative to this file
+env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env.ppt')
+load_dotenv(env_path)
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +38,18 @@ class SlideGenerator:
                     self.api_client = Groq(api_key=api_key)
                     self.api_type = "groq"
                     print("   Using Groq API")
+                    return
+            
+            if ppt_api_type == "nvidia" or os.getenv("PPT_NVIDIA_API_KEY"):
+                from openai import OpenAI
+                api_key = os.getenv("PPT_NVIDIA_API_KEY")
+                if api_key:
+                    self.api_client = OpenAI(
+                        base_url="https://integrate.api.nvidia.com/v1",
+                        api_key=api_key
+                    )
+                    self.api_type = "nvidia"
+                    print("   Using NVIDIA NIM API")
                     return
             
             if os.getenv("PPT_USE_CEREBRAS", "").lower() == "true":
@@ -353,6 +367,14 @@ Now generate 8 bullet points about "{section}" for "{topic}":"""
             if not line:
                 continue
             
+            # Remove markdown bold tags
+            line = re.sub(r'\*\*(.+?)\*\*', r'\1', line)
+            
+            # Skip introductory lines or section titles that end with a colon or start with conversational patterns
+            line_upper = line.upper()
+            if line.endswith(':') or any(line_upper.startswith(word) for word in ["HERE ARE", "HERE IS", "SURE", "BELOW IS", "PRESENTATION ON"]):
+                continue
+            
             # Remove any existing bullet markers
             line = re.sub(r'^[\s\-\*\•\➢\➤\►\▶\→\d\.\)\:]+\s*', '', line)
             line = line.strip()
@@ -380,6 +402,9 @@ Now generate 8 bullet points about "{section}" for "{topic}":"""
                 break
         
         # Ensure we have 8 bullets
+        if not bullets:
+            raise ValueError("No valid bullet points were found in the LLM response")
+            
         while len(bullets) < 8:
             bullets.append(f"Provides essential capabilities for effective {bullets[0].split()[0].lower() if bullets else 'implementation'}.")
         
@@ -419,8 +444,32 @@ Offers comprehensive documentation and support resources.
 Delivers consistent results in production environments.
 Enables rapid development and deployment cycles."""
     
+    def _sanitize_text(self, text: str) -> str:
+        """Sanitize unicode characters that Windows cp1252 cannot encode"""
+        if not text:
+            return text
+        # Replace unicode dashes/hyphens with standard ASCII hyphen
+        replacements = {
+            '\u2011': '-',  # non-breaking hyphen
+            '\u2012': '-',  # figure dash
+            '\u2013': '-',  # en dash
+            '\u2014': '-',  # em dash
+            '\u2015': '-',  # horizontal bar
+            '\u2018': "'",  # left single quote
+            '\u2019': "'",  # right single quote
+            '\u201c': '"',  # left double quote
+            '\u201d': '"',  # right double quote
+            '\u2022': '*',  # bullet
+            '\u2026': '...', # ellipsis
+            '\u00a0': ' ',  # non-breaking space
+        }
+        for char, replacement in replacements.items():
+            text = text.replace(char, replacement)
+        # Final safety net: encode/decode to strip any remaining unencodable chars
+        return text.encode('ascii', errors='ignore').decode('ascii')
+    
     def _call_llm(self, prompt: str, max_tokens: int = 500) -> str:
-        """Call LLM API"""
+        """Call LLM API with fallback support"""
         try:
             if self.api_type == "groq":
                 response = self.api_client.chat.completions.create(
@@ -429,7 +478,16 @@ Enables rapid development and deployment cycles."""
                     max_tokens=max_tokens,
                     temperature=0.7
                 )
-                return response.choices[0].message.content
+                return self._sanitize_text(response.choices[0].message.content)
+            
+            elif self.api_type == "nvidia":
+                response = self.api_client.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt}],
+                    model=os.getenv("PPT_NVIDIA_MODEL", "meta/llama-3.3-70b-instruct"),
+                    max_tokens=max_tokens,
+                    temperature=0.7
+                )
+                return self._sanitize_text(response.choices[0].message.content)
             
             elif self.api_type == "cerebras":
                 response = self.api_client.chat.completions.create(
@@ -438,12 +496,32 @@ Enables rapid development and deployment cycles."""
                     max_tokens=max_tokens,
                     temperature=0.7
                 )
-                return response.choices[0].message.content
+                return self._sanitize_text(response.choices[0].message.content)
             
-            return ""
+            raise Exception(f"No matching API type found or LLM failed. Configured API: {self.api_type}")
         except Exception as e:
-            logger.error(f"LLM call failed: {str(e)}")
-            return ""
+            logger.error(f"Primary LLM call ({self.api_type}) failed: {str(e)[:200]}")
+            
+            # Dynamic Fallback: if Groq failed and we have NVIDIA key, try NVIDIA
+            if self.api_type == "groq" and os.getenv("PPT_NVIDIA_API_KEY"):
+                try:
+                    logger.warning("Groq API failed. Falling back to NVIDIA NIM API...")
+                    from openai import OpenAI
+                    nvidia_client = OpenAI(
+                        base_url="https://integrate.api.nvidia.com/v1",
+                        api_key=os.getenv("PPT_NVIDIA_API_KEY")
+                    )
+                    response = nvidia_client.chat.completions.create(
+                        messages=[{"role": "user", "content": prompt}],
+                        model=os.getenv("PPT_NVIDIA_MODEL", "meta/llama-3.3-70b-instruct"),
+                        max_tokens=max_tokens,
+                        temperature=0.7
+                    )
+                    return self._sanitize_text(response.choices[0].message.content)
+                except Exception as n_err:
+                    logger.error(f"Fallback to NVIDIA NIM API failed: {str(n_err)[:200]}")
+                    
+            raise Exception(f"All LLM API calls failed. Original error: {str(e)[:200]}")
     
     # ========================================================================
     # REFINE SLIDE - Regenerate content for a specific slide

@@ -222,9 +222,12 @@
                 <!-- Topic Input -->
                 <div class="form-section">
                     <label class="section-label">1. What is your topic?</label>
-                    <div class="input-group large-input">
+                    <div class="input-group large-input" id="topicInputGroup">
                         <i class="fas fa-magic input-icon"></i>
                         <input type="text" id="topicInput" placeholder="e.g., The Future of AI in Healthcare" required>
+                    </div>
+                    <div id="topicErrorMsg" style="display: none; color: #ff4d6d; font-size: 0.85rem; margin-top: 8px; font-weight: 500; font-family: 'Poppins', sans-serif;">
+                        <i class="fas fa-exclamation-circle"></i> Please enter a topic first!
                     </div>
                 </div>
 
@@ -426,7 +429,24 @@
             // Setup expand toggle
             setupExpandToggle();
 
-            // Don't load templates initially (Default = no background needed)
+            // Setup validation listeners to clear errors when typing
+            const topicInput = document.getElementById('topicInput');
+            if (topicInput) {
+                topicInput.addEventListener('input', () => {
+                    topicInput.classList.remove('input-error');
+                    const errorMsg = document.getElementById('topicErrorMsg');
+                    if (errorMsg) errorMsg.style.display = 'none';
+                });
+            }
+
+            const userTitlesInput = document.getElementById('userTitlesInput');
+            if (userTitlesInput) {
+                userTitlesInput.addEventListener('input', () => {
+                    userTitlesInput.classList.remove('input-error');
+                    const errorMsg = document.getElementById('userTitlesErrorMsg');
+                    if (errorMsg) errorMsg.style.display = 'none';
+                });
+            }
         });
 
         // Reset UI on page show (handles Back button from Thank You page)
@@ -706,11 +726,26 @@
         }
 
         function generatePPT() {
-            const topic = document.getElementById('topicInput').value;
+            const topicInput = document.getElementById('topicInput');
+            const topic = topicInput.value.trim();
             const mode = document.querySelector('input[name="mode"]:checked').value;
 
+            // Clear any existing error state
+            topicInput.classList.remove('input-error');
+            const topicGroup = document.getElementById('topicInputGroup');
+            topicGroup.classList.remove('input-error-shake');
+            document.getElementById('topicErrorMsg').style.display = 'none';
+
             if (!topic) {
-                alert("Please enter a topic!");
+                // Focus & Scroll to topic input
+                topicInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => {
+                    topicInput.focus();
+                    // Add error visual state
+                    topicInput.classList.add('input-error');
+                    topicGroup.classList.add('input-error-shake');
+                    document.getElementById('topicErrorMsg').style.display = 'block';
+                }, 200);
                 return;
             }
 
@@ -756,7 +791,7 @@
                     })
                     .catch(error => {
                         console.error('Error:', error);
-                        alert('Error generating presentation: ' + error.message);
+                        showCustomAlert('Error Generating PPT', error.message, true);
                         document.getElementById('loadingOverlay').classList.remove('active');
                         document.querySelector('.generate-btn').style.display = 'block';
                         // document.getElementById('loading').style.display = 'none';
@@ -889,8 +924,22 @@
         }
 
         function submitUserTitles() {
+            const input = document.getElementById('userTitlesInput');
+            const inputGroup = document.getElementById('userTitlesInputGroup');
+            
+            // Clear error state
+            input.classList.remove('input-error');
+            inputGroup.classList.remove('input-error-shake');
+            document.getElementById('userTitlesErrorMsg').style.display = 'none';
+
             if (userTitles.length === 0) {
-                alert("Please enter at least one topic.");
+                input.focus();
+                input.classList.add('input-error');
+                inputGroup.classList.add('input-error-shake');
+                document.getElementById('userTitlesErrorMsg').style.display = 'block';
+                setTimeout(() => {
+                    inputGroup.classList.remove('input-error-shake');
+                }, 300);
                 return;
             }
 
@@ -963,7 +1012,7 @@
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('Error generating presentation: ' + error.message);
+                    showCustomAlert('Error Generating PPT', error.message, true);
                     document.getElementById('loadingOverlay').classList.remove('active');
                 });
         }
@@ -1033,6 +1082,20 @@
             border: 1px solid rgba(255, 255, 255, 0.3);
             border-radius: 30px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Input Validation Styles */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-6px); }
+            75% { transform: translateX(6px); }
+        }
+        .input-error-shake {
+            animation: shake 0.3s ease-in-out;
+        }
+        .input-error {
+            border: 2px solid #ff4d6d !important;
+            box-shadow: 0 0 10px rgba(255, 77, 109, 0.4) !important;
         }
     </style>
 
@@ -1136,6 +1199,27 @@
                 }
             }
         })();
+
+        // Custom Glassmorphism Alert Dialog Functions
+        window.showCustomAlert = function (title, message, isError = false) {
+            document.getElementById('customAlertTitle').textContent = title;
+            document.getElementById('customAlertMessage').innerHTML = message;
+            const icon = document.getElementById('customAlertIcon');
+            if (isError) {
+                icon.className = 'fas fa-exclamation-triangle';
+                icon.style.color = '#ff4d6d';
+                icon.parentElement.style.background = 'rgba(255, 77, 109, 0.2)';
+            } else {
+                icon.className = 'fas fa-info-circle';
+                icon.style.color = '#ff758c';
+                icon.parentElement.style.background = 'rgba(255, 154, 158, 0.2)';
+            }
+            document.getElementById('customAlertModal').classList.add('active');
+        };
+
+        window.closeCustomAlert = function () {
+            document.getElementById('customAlertModal').classList.remove('active');
+        };
     </script>
 
     <!-- Decide Mode Custom Titles Modal -->
@@ -1187,11 +1271,14 @@
                 </div>
 
                 <!-- Input Field -->
-                <div class="input-group" style="margin-bottom: 0;">
+                <div class="input-group" id="userTitlesInputGroup" style="margin-bottom: 0;">
                     <input type="text" id="userTitlesInput"
                         placeholder="Type a topic and press Enter (or paste your list here)..."
                         style="width: 100%; padding: 15px; border-radius: 50px; border: 1px solid rgba(255,255,255,0.4); background: rgba(255,255,255,0.2); color: #7a4a4f; font-family: 'Poppins', sans-serif; font-size: 1rem; outline: none;"
                         onkeydown="handleTitleKeydown(event)" onpaste="handleTitlePaste(event)">
+                </div>
+                <div id="userTitlesErrorMsg" style="display: none; color: #ff4d6d; font-size: 0.85rem; margin-top: 8px; font-weight: 500; font-family: 'Poppins', sans-serif; margin-left: 15px;">
+                    <i class="fas fa-exclamation-circle"></i> Please enter at least one slide title first!
                 </div>
 
                 <div style="margin-top: 30px; display: flex; gap: 15px; justify-content: center;">
@@ -1261,6 +1348,20 @@
                     border-color: #ff9a9e !important;
                 }
             </style>
+        </div>
+    </div>
+
+    <!-- Custom Glassmorphism Alert Modal -->
+    <div id="customAlertModal" class="modal-overlay" style="z-index: 11000;">
+        <div class="glass-card modal-content" style="width: 90%; max-width: 450px; padding: 30px; text-align: center; animation: zoomIn 0.3s ease;">
+            <div style="width: 50px; height: 50px; background: rgba(255, 154, 158, 0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px;">
+                <i class="fas fa-info-circle" id="customAlertIcon" style="color: #ff758c; font-size: 1.3rem;"></i>
+            </div>
+            <h3 id="customAlertTitle" style="color: #d66d75; margin-bottom: 10px; font-family: 'Poppins', sans-serif;">Notification</h3>
+            <p id="customAlertMessage" style="color: #7a4a4f; margin-bottom: 25px; line-height: 1.5; font-size: 0.95rem;">Message goes here...</p>
+            <button onclick="closeCustomAlert()" style="padding: 10px 30px; border-radius: 50px; border: none; background: linear-gradient(to right, #ff9a9e, #fad0c4); color: white; font-weight: 600; cursor: pointer; box-shadow: 0 4px 15px rgba(255, 154, 158, 0.4); transition: transform 0.2s;">
+                OK
+            </button>
         </div>
     </div>
 
