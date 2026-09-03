@@ -1039,13 +1039,19 @@ body {
 @media (max-width: 768px) {
     /* --- Global --- */
     body {
-        overflow-x: hidden;
+        height: auto !important;
+        min-height: 100vh;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        display: block !important;
+        -webkit-overflow-scrolling: touch;
     }
 
     .glass-card {
         padding: 30px 18px !important;
-        width: 92% !important;
+        width: 94% !important;
         max-width: 100% !important;
+        margin: 15px auto;
     }
 
     .glass-nav {
@@ -1610,13 +1616,38 @@ body {
     }
 }
 
-/* Hide drawer toggles on desktop */
-.drawer-toggle {
+/* Hide drawer toggles and mobile download button on desktop */
+.drawer-toggle,
+.mobile-stage-download-btn {
     display: none !important;
 }
 
 @media (max-width: 768px) {
     .drawer-toggle {
         display: flex !important;
+    }
+
+    .mobile-stage-download-btn {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        width: 100%;
+        max-width: 320px;
+        margin: 12px auto 0;
+        padding: 12px 20px;
+        background: linear-gradient(135deg, #d66d75 0%, #e29578 100%);
+        color: white;
+        border: none;
+        border-radius: 30px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        box-shadow: 0 4px 15px rgba(214, 109, 117, 0.4);
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .mobile-stage-download-btn:active {
+        transform: scale(0.96);
     }
 }

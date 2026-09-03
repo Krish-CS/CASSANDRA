@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: cassandra-ai-ppt
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers 2 --timeout 180 --bind 0.0.0.0:$PORT
+    healthCheckPath: /ping
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9

@@ -1,5 +1,8 @@
 .env
 .env.ppt
+.venv/
+venv/
+env/
 output/
 __pycache__/
 *.pyc

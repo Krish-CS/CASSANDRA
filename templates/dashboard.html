@@ -774,20 +774,26 @@
                         return response.blob();
                     })
                     .then(blob => {
-                        // Download the file
+                        // Download the file safely
+                        const filename = `cassandra_${topic.replace(/\s+/g, '_')}.pptx`;
                         const url = window.URL.createObjectURL(blob);
                         const a = document.createElement('a');
+                        a.style.display = 'none';
                         a.href = url;
-                        a.download = `cassandra_${topic.replace(/\s+/g, '_')}.pptx`;
+                        a.download = filename;
                         document.body.appendChild(a);
                         a.click();
-                        window.URL.revokeObjectURL(url);
-                        a.remove();
+                        
+                        // Keep blob URL alive so browser has time to finish stream
+                        setTimeout(() => {
+                            window.URL.revokeObjectURL(url);
+                            a.remove();
+                        }, 60000);
 
-                        // Redirect to thank you page
+                        // Allow download to initiate before redirecting
                         setTimeout(() => {
                             window.location.href = '/thank-you';
-                        }, 500);
+                        }, 2500);
                     })
                     .catch(error => {
                         console.error('Error:', error);
@@ -995,20 +1001,26 @@
                     return response.blob();
                 })
                 .then(blob => {
-                    // Download the file
+                    // Download the file safely
+                    const filename = `cassandra_${topic.replace(/\s+/g, '_')}.pptx`;
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
+                    a.style.display = 'none';
                     a.href = url;
-                    a.download = `cassandra_${topic.replace(/\s+/g, '_')}.pptx`;
+                    a.download = filename;
                     document.body.appendChild(a);
                     a.click();
-                    window.URL.revokeObjectURL(url);
-                    a.remove();
 
-                    // Redirect to thank you page
+                    // Keep blob URL alive so browser has time to finish stream
+                    setTimeout(() => {
+                        window.URL.revokeObjectURL(url);
+                        a.remove();
+                    }, 60000);
+
+                    // Allow download to initiate before redirecting
                     setTimeout(() => {
                         window.location.href = '/thank-you';
-                    }, 500);
+                    }, 2500);
                 })
                 .catch(error => {
                     console.error('Error:', error);

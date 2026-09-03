@@ -876,6 +876,11 @@
                     <i class="fas fa-sync-alt"></i> Regenerate
                 </button>
             </div>
+
+            <!-- Mobile Quick Download Button -->
+            <button class="mobile-stage-download-btn" onclick="downloadPresentation()">
+                <i class="fas fa-download"></i> Download Presentation (PPT)
+            </button>
         </main>
 
 
@@ -1947,15 +1952,25 @@
                 })
                 .then(blob => {
                     overlay.classList.remove('active');
+                    const filename = `cassandra_${topic.replace(/\s+/g, '_')}.pptx`;
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
+                    a.style.display = 'none';
                     a.href = url;
-                    a.download = `cassandra_${topic.replace(/\s+/g, '_')}.pptx`;
+                    a.download = filename;
                     document.body.appendChild(a);
                     a.click();
-                    window.URL.revokeObjectURL(url);
-                    a.remove();
-                    setTimeout(() => { window.location.href = '/thank-you'; }, 500);
+
+                    // Keep blob URL alive so browser finishes stream download
+                    setTimeout(() => {
+                        window.URL.revokeObjectURL(url);
+                        a.remove();
+                    }, 60000);
+
+                    // Delay redirect to ensure download starts cleanly
+                    setTimeout(() => {
+                        window.location.href = '/thank-you';
+                    }, 2500);
                 })
                 .catch(error => {
                     overlay.classList.remove('active');

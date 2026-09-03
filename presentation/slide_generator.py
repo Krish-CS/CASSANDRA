@@ -3,6 +3,7 @@ Cassandra AI - Slide Generator
 Generates comprehensive slide content for topic-based PPT generation
 """
 
+import sys
 import os
 from typing import Dict, List, Any
 import logging
@@ -11,9 +12,23 @@ import re
 import requests
 import json
 
-# Load environment variables from .env.ppt using absolute path relative to this file
-env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env.ppt')
-load_dotenv(env_path)
+# Ensure stdout handles UTF-8 safely without UnicodeEncodeError
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
+# Load environment variables: check .env.ppt, .env, and fall back to system environment
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ppt_env_path = os.path.join(base_dir, '.env.ppt')
+std_env_path = os.path.join(base_dir, '.env')
+
+if os.path.exists(ppt_env_path):
+    load_dotenv(ppt_env_path)
+if os.path.exists(std_env_path):
+    load_dotenv(std_env_path)
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -24,47 +39,48 @@ class SlideGenerator:
     def __init__(self):
         self.api_client = None
         self.api_type = None
+        self.nvidia_api_key = None
         self._initialize_api()
     
     def _initialize_api(self):
-        """Initialize PPT API from .env.ppt"""
+        """Initialize PPT API from environment variables or .env.ppt"""
         try:
             ppt_api_type = os.getenv("PPT_API_TYPE", "").lower()
+            groq_key = os.getenv("PPT_GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
+            nvidia_key = os.getenv("PPT_NVIDIA_API_KEY") or os.getenv("NVIDIA_API_KEY")
             
-            if ppt_api_type == "groq" or os.getenv("PPT_GROQ_API_KEY"):
-                from groq import Groq
-                api_key = os.getenv("PPT_GROQ_API_KEY")
-                if api_key:
-                    self.api_client = Groq(api_key=api_key)
+            if nvidia_key:
+                self.nvidia_api_key = nvidia_key
+
+            if ppt_api_type == "groq" or groq_key:
+                if groq_key:
+                    from groq import Groq
+                    self.api_client = Groq(api_key=groq_key)
                     self.api_type = "groq"
                     print("   Using Groq API")
                     return
             
-            if ppt_api_type == "nvidia" or os.getenv("PPT_NVIDIA_API_KEY"):
-                from openai import OpenAI
-                api_key = os.getenv("PPT_NVIDIA_API_KEY")
-                if api_key:
-                    self.api_client = OpenAI(
-                        base_url="https://integrate.api.nvidia.com/v1",
-                        api_key=api_key
-                    )
+            if ppt_api_type == "nvidia" or nvidia_key:
+                if nvidia_key:
+                    try:
+                        from openai import OpenAI
+                        self.api_client = OpenAI(
+                            base_url="https://integrate.api.nvidia.com/v1",
+                            api_key=nvidia_key
+                        )
+                    except Exception:
+                        self.api_client = None
                     self.api_type = "nvidia"
                     print("   Using NVIDIA NIM API")
                     return
             
             if os.getenv("PPT_USE_CEREBRAS", "").lower() == "true":
-                from cerebras.cloud.sdk import Cerebras
                 api_key = os.getenv("PPT_CEREBRAS_API_KEY")
                 if api_key:
+                    from cerebras.cloud.sdk import Cerebras
                     self.api_client = Cerebras(api_key=api_key)
                     self.api_type = "cerebras"
                     return
-            
-            if os.getenv("GROQ_API_KEY"):
-                from groq import Groq
-                self.api_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-                self.api_type = "groq"
-                return
         
         except Exception as e:
             logger.error(f"Error initializing API: {str(e)}")
@@ -73,26 +89,33 @@ class SlideGenerator:
     # TOPIC PARSING - Generate 15+ topic-specific slides
     # ========================================================================
     
-    async def analyze_overview(self, overview_text: str, project_name: str = "", num_slides: int = 15) -> Dict[str, Any]:
+    async def analyze_overview(self, overview_text: str = "", project_name: str = "", num_slides: int = 15) -> Dict[str, Any]:
         """Generate topic-specific slide topics"""
-        print(f"\n   Generating {num_slides} slides for: {project_name or overview_text[:30]}")
+        safe_topic = (overview_text or project_name or "Topic").strip()
+        safe_project_name = (project_name or safe_topic).strip()
+        print(f"\n   Generating {num_slides} slides for: {safe_project_name[:30]}")
         
-        overview_text = overview_text.replace('\t', ' ').replace('\r\n', '\n')
+        cleaned_text = safe_topic.replace('\t', ' ').replace('\r\n', '\n')
         
         try:
-            parsed = await self._parse_overview_with_llm(overview_text, project_name, num_slides)
-            slide_topics = parsed.get("slides", [])
+            parsed = await self._parse_overview_with_llm(cleaned_text, safe_project_name, num_slides)
+            slide_topics = (parsed or {}).get("slides", [])
+            if not slide_topics:
+                slide_topics = self._fallback_topics(safe_project_name, num_slides)
             print(f"   Generated {len(slide_topics)} topics")
-            return {"success": True, "slides": slide_topics, "project_name": project_name}
+            return {"success": True, "slides": slide_topics, "project_name": safe_project_name}
         except Exception as e:
-            print(f"   Error: {str(e)}")
-            return {"success": False, "slides": self._fallback_topics(project_name, num_slides), "error": str(e)}
+            print(f"   Notice: {str(e)[:100]}, using fallback slide structure")
+            return {"success": False, "slides": self._fallback_topics(safe_project_name, num_slides), "error": str(e)}
     
     async def refine_user_titles(self, titles: List[str], project_name: str) -> List[str]:
         """Refine user-provided titles to fix typos and professionalize them"""
+        if not titles:
+            return []
+        safe_project_name = (project_name or "Presentation").strip()
         print(f"   Refining {len(titles)} user titles...")
         
-        prompt = f"""I have a list of slide titles for a presentation on "{project_name}".
+        prompt = f"""I have a list of slide titles for a presentation on "{safe_project_name}".
 Some might have typos or be informal. Refine them to be professional slide titles.
 Keep the SAME NUMBER of slides and roughly the same meaning.
 
@@ -102,20 +125,21 @@ Return ONLY valid JSON: ["Title 1", "Title 2", ...]"""
 
         try:
             response = self._call_llm(prompt, 600)
-            match = re.search(r'\[.*\]', response, re.DOTALL)
-            if match:
-                refined = json.loads(match.group(0))
-                if isinstance(refined, list) and len(refined) == len(titles):
-                    return refined
-            return titles # Fallback to original
+            if response:
+                match = re.search(r'\[.*\]', response, re.DOTALL)
+                if match:
+                    refined = json.loads(match.group(0))
+                    if isinstance(refined, list) and len(refined) == len(titles):
+                        return [str(t) for t in refined]
+            return titles  # Fallback to original
         except Exception as e:
             print(f"Error refining titles: {e}")
             return titles
 
     async def _parse_overview_with_llm(self, overview_text: str, topic: str, num_slides: int) -> Dict[str, Any]:
         """Generate topic-specific slide titles using LLM"""
-        
-        prompt = f"""You are creating a professional presentation about "{topic or overview_text}".
+        safe_topic = (topic or overview_text or "Topic").strip()
+        prompt = f"""You are creating a professional presentation about "{safe_topic}".
 
 Generate EXACTLY {num_slides} slide topics that DEEPLY explore this subject.
 
@@ -127,58 +151,49 @@ IMPORTANT RULES:
    - For products/tools: Features, Architecture, Installation, Usage, Best Practices
 3. Last 4 slides: ADVANTAGES, DISADVANTAGES, FUTURE SCOPE, CONCLUSION (always include these)
 
-EXAMPLE for "Python Programming":
-["INTRODUCTION TO PYTHON", "ABSTRACT", "HISTORY OF PYTHON", "PYTHON SYNTAX AND STRUCTURE", "DATA TYPES IN PYTHON", "CONTROL FLOW STATEMENTS", "FUNCTIONS AND MODULES", "OBJECT ORIENTED PROGRAMMING", "FILE HANDLING", "LIBRARIES AND FRAMEWORKS", "APPLICATIONS OF PYTHON", "ADVANTAGES", "DISADVANTAGES", "FUTURE SCOPE", "CONCLUSION"]
-
-EXAMPLE for "Machine Learning":
-["INTRODUCTION TO MACHINE LEARNING", "ABSTRACT", "TYPES OF MACHINE LEARNING", "SUPERVISED LEARNING", "UNSUPERVISED LEARNING", "NEURAL NETWORKS", "DEEP LEARNING FUNDAMENTALS", "TRAINING AND TESTING", "POPULAR ML ALGORITHMS", "ML FRAMEWORKS AND TOOLS", "REAL WORLD APPLICATIONS", "ADVANTAGES", "DISADVANTAGES", "FUTURE SCOPE", "CONCLUSION"]
-
-Now generate {num_slides} slide topics for "{topic or overview_text}":
+Now generate {num_slides} slide topics for "{safe_topic}":
 Return ONLY valid JSON: {{"slides": ["SLIDE1", "SLIDE2", ...]}}"""
 
         try:
             response = self._call_llm(prompt, 600)
-            match = re.search(r'\{.*\}', response, re.DOTALL)
-            if match:
-                result = json.loads(match.group(0))
-                slides = result.get("slides", [])
-                # Ensure we have the right number
-                if len(slides) >= num_slides - 2:
-                    slides = slides[:num_slides]
-                    
-                    # ENSURE CONCLUSION IS LAST - post-process
-                    slides = self._ensure_conclusion_last(slides, topic)
-                    return {"slides": slides}
-            return {"slides": self._fallback_topics(topic, num_slides)}
-        except:
-            return {"slides": self._fallback_topics(topic, num_slides)}
+            if response:
+                match = re.search(r'\{.*\}', response, re.DOTALL)
+                if match:
+                    result = json.loads(match.group(0))
+                    slides = result.get("slides", [])
+                    if isinstance(slides, list) and len(slides) >= max(3, num_slides - 2):
+                        slides = slides[:num_slides]
+                        slides = self._ensure_conclusion_last(slides, safe_topic)
+                        return {"slides": slides}
+            return {"slides": self._fallback_topics(safe_topic, num_slides)}
+        except Exception:
+            return {"slides": self._fallback_topics(safe_topic, num_slides)}
     
     def _ensure_conclusion_last(self, slides: List[str], topic: str) -> List[str]:
         """Ensure CONCLUSION is always the last slide"""
-        # Find and remove any existing conclusion slide
+        if not slides:
+            return [f"INTRODUCTION TO {(topic or 'TOPIC').upper()}", "ABSTRACT", "CONCLUSION"]
+        
         conclusion_idx = -1
         for i, slide in enumerate(slides):
-            if "CONCLUSION" in slide.upper():
+            if slide and "CONCLUSION" in str(slide).upper():
                 conclusion_idx = i
                 break
         
         if conclusion_idx >= 0:
-            # Remove from current position
             conclusion_slide = slides.pop(conclusion_idx)
-            # Add at the end
             slides.append(conclusion_slide)
         else:
-            # No conclusion found, add it
             slides.append("CONCLUSION")
         
         return slides
 
-    
     def _fallback_topics(self, topic: str, num_slides: int = 15) -> List[str]:
         """Default topic-specific slide topics - always ends with CONCLUSION"""
+        safe_topic = (topic or "TOPIC").strip().upper()
         # Fixed start slides (first 2)
         start_slides = [
-            f"INTRODUCTION TO {topic.upper()}",
+            f"INTRODUCTION TO {safe_topic}",
             "ABSTRACT",
         ]
         
@@ -203,20 +218,13 @@ Return ONLY valid JSON: {{"slides": ["SLIDE1", "SLIDE2", ...]}}"""
             f"REAL WORLD APPLICATIONS",
         ]
         
-        # Calculate how many middle slides we need
-        middle_needed = num_slides - len(start_slides) - len(end_slides)
-        
-        # Extend middle if needed
+        middle_needed = max(0, num_slides - len(start_slides) - len(end_slides))
         while len(middle_slides) < middle_needed:
             middle_slides.append(f"TOPIC {len(middle_slides) + 1}")
         
-        # Take only what we need from middle
         middle_slides = middle_slides[:middle_needed]
-        
-        # Combine: start + middle + end (CONCLUSION always last)
         return start_slides + middle_slides + end_slides
 
-    
     # ========================================================================
     # CONTENT GENERATION - 8 bullet points, 8-9 line paragraphs
     # ========================================================================
@@ -224,26 +232,27 @@ Return ONLY valid JSON: {{"slides": ["SLIDE1", "SLIDE2", ...]}}"""
     async def generate_ppt_content(
         self,
         toc_structure: Dict[str, Any],
-        code_content: str,
-        project_name: str,
+        code_content: str = "",
+        project_name: str = "",
         content_mode: str = "cassandra"
     ) -> Dict[str, Any]:
         """Generate comprehensive PPT content"""
-        print(f"\n   Generating content for: {project_name} (Mode: {content_mode})")
+        safe_project_name = (project_name or "Presentation").strip()
+        print(f"\n   Generating content for: {safe_project_name} (Mode: {content_mode})")
         
         generated_content = {
-            "project_name": project_name,
+            "project_name": safe_project_name,
             "abstract": "",
             "chapters": []
         }
         
         # Generate Abstract
-        generated_content["abstract"] = await self._generate_abstract(project_name)
+        generated_content["abstract"] = await self._generate_abstract(safe_project_name)
         
-        # Generate each slide
-        total = len(toc_structure.get("chapters", []))
-        for idx, chapter in enumerate(toc_structure.get("chapters", []), 1):
-            title = chapter.get("title", "")
+        chapters = (toc_structure or {}).get("chapters", [])
+        total = len(chapters)
+        for idx, chapter in enumerate(chapters, 1):
+            title = (chapter.get("title") or f"Slide {idx}").strip()
             print(f"   Slide {idx}/{total}: {title}")
             
             chapter_content = {
@@ -252,12 +261,13 @@ Return ONLY valid JSON: {{"slides": ["SLIDE1", "SLIDE2", ...]}}"""
                 "sections": []
             }
             
-            for section in chapter.get("sections", []):
-                section_title = section.get("title", title)
-                content = await self._generate_section(section_title, project_name, content_mode)
+            sections = chapter.get("sections") or [{"title": title, "number": f"{idx}.1"}]
+            for section in sections:
+                section_title = (section.get("title") or title).strip()
+                content = await self._generate_section(section_title, safe_project_name, content_mode)
                 
                 chapter_content["sections"].append({
-                    "number": section.get("number", ""),
+                    "number": section.get("number", f"{idx}.1"),
                     "title": section_title,
                     "content": content
                 })
@@ -269,7 +279,8 @@ Return ONLY valid JSON: {{"slides": ["SLIDE1", "SLIDE2", ...]}}"""
     
     async def _generate_abstract(self, topic: str) -> str:
         """Generate 8-9 line abstract (paragraph format)"""
-        prompt = f"""Write a comprehensive ABSTRACT about "{topic}" for a professional presentation.
+        safe_topic = (topic or "Presentation").strip()
+        prompt = f"""Write a comprehensive ABSTRACT about "{safe_topic}" for a professional presentation.
 
 REQUIREMENTS:
 - 8-9 sentences (180-220 words)
@@ -281,36 +292,38 @@ Write the abstract:"""
 
         try:
             content = self._call_llm(prompt, 400)
-            return self._clean_paragraph(content)
-        except:
-            return f"{topic} is a significant advancement in modern technology with wide-ranging applications across various industries. It provides innovative solutions to complex problems through its unique approach and methodology. The fundamental principles underlying {topic} enable efficient and effective implementation in diverse scenarios. Organizations and individuals leverage {topic} to achieve better outcomes and improved performance. The field continues to evolve with new developments and innovations. Research and development efforts are driving continuous improvements. This presentation explores the key aspects, benefits, and practical applications of {topic}. Understanding these concepts is essential for professionals in this domain."
+            cleaned = self._clean_paragraph(content)
+            if cleaned and len(cleaned) > 50:
+                return cleaned
+        except Exception:
+            pass
+        return f"{safe_topic} is a significant advancement in modern technology with wide-ranging applications across various industries. It provides innovative solutions to complex problems through its unique approach and methodology. The fundamental principles underlying {safe_topic} enable efficient and effective implementation in diverse scenarios. Organizations and individuals leverage {safe_topic} to achieve better outcomes and improved performance. The field continues to evolve with new developments and innovations. Research and development efforts are driving continuous improvements. This presentation explores the key aspects, benefits, and practical applications of {safe_topic}. Understanding these concepts is essential for professionals in this domain."
     
     async def _generate_section(self, section_title: str, topic: str, content_mode: str = "cassandra") -> str:
         """Generate content based on section type and content mode"""
+        safe_section = (section_title or "Section").strip()
+        safe_topic = (topic or "Topic").strip()
+        section_upper = safe_section.upper()
         
-        section_upper = section_title.upper()
-        
-        # Determine strict style based on mode
         use_paragraph = False
-        
         if content_mode == 'para':
             use_paragraph = True
         elif content_mode == 'point':
             use_paragraph = False
         else:
-            # Cassandra Mode (Default)
-            # PARAGRAPH sections (intro/conclusion/abstract only)
             if any(word in section_upper for word in ["INTRODUCTION", "CONCLUSION", "ABSTRACT"]):
                 use_paragraph = True
         
         if use_paragraph:
-            return await self._generate_paragraph(section_title, topic)
+            return await self._generate_paragraph(safe_section, safe_topic)
         else:
-            return await self._generate_bullets(section_title, topic)
+            return await self._generate_bullets(safe_section, safe_topic)
     
     async def _generate_paragraph(self, section: str, topic: str) -> str:
         """Generate paragraph content (10-11 sentences)"""
-        prompt = f"""Write a comprehensive paragraph about "{section}" for a presentation on "{topic}".
+        safe_section = (section or "Overview").strip()
+        safe_topic = (topic or "Topic").strip()
+        prompt = f"""Write a comprehensive paragraph about "{safe_section}" for a presentation on "{safe_topic}".
 
 REQUIREMENTS:
 - 10-11 sentences (220-280 words)
@@ -322,15 +335,19 @@ Write the paragraph:"""
 
         try:
             content = self._call_llm(prompt, 500)
-            return self._clean_paragraph(content)
-        except:
-            return f"This section provides a comprehensive overview of {section.lower()} in the context of {topic}. Understanding these fundamentals is essential for effective implementation and utilization. The concepts presented here form the foundation for advanced topics covered in subsequent sections. Practical applications and real-world examples demonstrate the relevance and importance of this subject matter. The field has evolved significantly over the years with continuous innovations. Modern approaches incorporate best practices from various domains. By mastering these concepts, professionals can leverage {topic} to achieve significant improvements in their respective domains. This knowledge is crucial for anyone working in this field. The ongoing research and development continues to drive new discoveries. Organizations worldwide are investing in these technologies to stay competitive."
+            cleaned = self._clean_paragraph(content)
+            if cleaned and len(cleaned) > 50:
+                return cleaned
+        except Exception:
+            pass
+        return f"This section provides a comprehensive overview of {safe_section.lower()} in the context of {safe_topic}. Understanding these fundamentals is essential for effective implementation and utilization. The concepts presented here form the foundation for advanced topics covered in subsequent sections. Practical applications and real-world examples demonstrate the relevance and importance of this subject matter. The field has evolved significantly over the years with continuous innovations. Modern approaches incorporate best practices from various domains. By mastering these concepts, professionals can leverage {safe_topic} to achieve significant improvements in their respective domains. This knowledge is crucial for anyone working in this field. The ongoing research and development continues to drive new discoveries. Organizations worldwide are investing in these technologies to stay competitive."
 
-    
     async def _generate_bullets(self, section: str, topic: str) -> str:
         """Generate exactly 8 crisp bullet points"""
+        safe_section = (section or "Key Aspects").strip()
+        safe_topic = (topic or "Topic").strip()
         
-        prompt = f"""Generate exactly 8 bullet points about "{section}" for a presentation on "{topic}".
+        prompt = f"""Generate exactly 8 bullet points about "{safe_section}" for a presentation on "{safe_topic}".
 
 CRITICAL RULES:
 1. Each bullet point must be ONE clear sentence (10-15 words)
@@ -339,27 +356,20 @@ CRITICAL RULES:
 4. NO sub-points, NO colons in the middle
 5. Points must be relevant to the section topic
 
-FORMAT (exactly like this):
-Provides efficient data processing capabilities for large scale applications.
-Enables seamless integration with existing enterprise systems.
-Supports multiple programming languages and development frameworks.
-Offers robust security features for data protection.
-Facilitates real-time analytics and decision making processes.
-Ensures high availability and fault tolerance mechanisms.
-Delivers comprehensive monitoring and logging capabilities.
-Enables rapid deployment and scaling of applications.
-
-Now generate 8 bullet points about "{section}" for "{topic}":"""
+Now generate 8 bullet points about "{safe_section}" for "{safe_topic}":"""
 
         try:
             content = self._call_llm(prompt, 500)
-            return self._format_bullets(content)
-        except:
-            return self._default_bullets(section, topic)
+            return self._format_bullets(content, safe_section, safe_topic)
+        except Exception:
+            return self._default_bullets(safe_section, safe_topic)
     
-    def _format_bullets(self, content: str) -> str:
+    def _format_bullets(self, content: str, section: str = "Key Aspects", topic: str = "Presentation") -> str:
         """Clean and format bullet points - ensure 8 points"""
-        lines = content.strip().split('\n')
+        if not content:
+            return self._default_bullets(section, topic)
+            
+        lines = str(content).strip().split('\n')
         bullets = []
         
         for line in lines:
@@ -370,7 +380,6 @@ Now generate 8 bullet points about "{section}" for "{topic}":"""
             # Remove markdown bold tags
             line = re.sub(r'\*\*(.+?)\*\*', r'\1', line)
             
-            # Skip introductory lines or section titles that end with a colon or start with conversational patterns
             line_upper = line.upper()
             if line.endswith(':') or any(line_upper.startswith(word) for word in ["HERE ARE", "HERE IS", "SURE", "BELOW IS", "PRESENTATION ON"]):
                 continue
@@ -388,22 +397,18 @@ Now generate 8 bullet points about "{section}" for "{topic}":"""
                 if cut > 50:
                     line = line[:cut]
             
-            # Ensure ends with period
             if line and line[-1] not in '.!?':
                 line = line + '.'
             
-            # Capitalize first letter
             if line:
                 line = line[0].upper() + line[1:]
             
             bullets.append(line)
-            
             if len(bullets) >= 8:
                 break
         
-        # Ensure we have 8 bullets
         if not bullets:
-            raise ValueError("No valid bullet points were found in the LLM response")
+            return self._default_bullets(section, topic)
             
         while len(bullets) < 8:
             bullets.append(f"Provides essential capabilities for effective {bullets[0].split()[0].lower() if bullets else 'implementation'}.")
@@ -411,29 +416,26 @@ Now generate 8 bullet points about "{section}" for "{topic}":"""
         return '\n'.join(bullets[:8])
     
     def _clean_paragraph(self, content: str) -> str:
-        """Clean paragraph content"""
-        # Remove markdown
+        """Clean paragraph content safely"""
+        if not content:
+            return ""
+        content = str(content)
         content = re.sub(r'\*\*(.+?)\*\*', r'\1', content)
         content = re.sub(r'^\#+\s+', '', content, flags=re.MULTILINE)
         content = re.sub(r'^[\-\*\•]\s+', '', content, flags=re.MULTILINE)
-        
-        # Join into single paragraph
         content = ' '.join(content.split())
         
-        # Ensure minimum length (10-11 sentences needs ~500+ chars)
         if len(content) < 500:
             content = content + " This aspect plays a crucial role in the overall implementation and effectiveness of the solution. Understanding these concepts is essential for successful application. The ongoing developments in this field continue to expand possibilities. Professionals benefit greatly from staying updated with these advancements."
         
-        # Limit maximum length (10-11 sentences needs ~800 chars max)
         if len(content) > 800:
             cut = content[:800].rfind('.')
             if cut > 500:
                 content = content[:cut+1]
         
         return content.strip()
-
     
-    def _default_bullets(self, section: str, topic: str) -> str:
+    def _default_bullets(self, section: str = "Key Aspects", topic: str = "Presentation") -> str:
         """Fallback bullet points (8 points)"""
         return f"""Provides fundamental capabilities for {topic} implementation.
 Enables efficient processing and management of resources.
@@ -447,82 +449,123 @@ Enables rapid development and deployment cycles."""
     def _sanitize_text(self, text: str) -> str:
         """Sanitize unicode characters that Windows cp1252 cannot encode"""
         if not text:
-            return text
-        # Replace unicode dashes/hyphens with standard ASCII hyphen
+            return ""
+        text = str(text)
         replacements = {
-            '\u2011': '-',  # non-breaking hyphen
-            '\u2012': '-',  # figure dash
-            '\u2013': '-',  # en dash
-            '\u2014': '-',  # em dash
-            '\u2015': '-',  # horizontal bar
-            '\u2018': "'",  # left single quote
-            '\u2019': "'",  # right single quote
-            '\u201c': '"',  # left double quote
-            '\u201d': '"',  # right double quote
-            '\u2022': '*',  # bullet
-            '\u2026': '...', # ellipsis
-            '\u00a0': ' ',  # non-breaking space
+            '\u2011': '-',
+            '\u2012': '-',
+            '\u2013': '-',
+            '\u2014': '-',
+            '\u2015': '-',
+            '\u2018': "'",
+            '\u2019': "'",
+            '\u201c': '"',
+            '\u201d': '"',
+            '\u2022': '*',
+            '\u2026': '...',
+            '\u00a0': ' ',
         }
         for char, replacement in replacements.items():
             text = text.replace(char, replacement)
-        # Final safety net: encode/decode to strip any remaining unencodable chars
         return text.encode('ascii', errors='ignore').decode('ascii')
     
+    def _call_nvidia_direct(self, prompt: str, api_key: str, max_tokens: int = 500) -> str:
+        """Direct HTTP call to NVIDIA NIM API without requiring third-party SDK quirks"""
+        model = os.getenv("PPT_NVIDIA_MODEL", "meta/llama-3.2-11b-vision-instruct")
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+            "temperature": 0.7
+        }
+        res = requests.post(
+            "https://integrate.api.nvidia.com/v1/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+        if res.status_code == 200:
+            data = res.json()
+            choices = data.get("choices", [])
+            if choices and "message" in choices[0]:
+                content = choices[0]["message"].get("content", "")
+                return self._sanitize_text(content or "")
+        raise Exception(f"NVIDIA API status {res.status_code}: {res.text[:150]}")
+
     def _call_llm(self, prompt: str, max_tokens: int = 500) -> str:
-        """Call LLM API with fallback support"""
-        try:
-            if self.api_type == "groq":
-                response = self.api_client.chat.completions.create(
-                    messages=[{"role": "user", "content": prompt}],
-                    model=os.getenv("PPT_GROQ_MODEL", "llama-3.3-70b-versatile"),
-                    max_tokens=max_tokens,
-                    temperature=0.7
-                )
-                return self._sanitize_text(response.choices[0].message.content)
+        """Call LLM API with active models and multi-model fallback support"""
+        # Primary API: Groq
+        if self.api_type == "groq" and self.api_client:
+            # Active working models on Groq in priority order
+            groq_models = [
+                os.getenv("PPT_GROQ_MODEL", "qwen/qwen3.8-27b"),
+                "openai/gpt-oss-120b",
+                "openai/gpt-oss-20b",
+                "groq/compound-mini"
+            ]
+            for model_name in groq_models:
+                try:
+                    response = self.api_client.chat.completions.create(
+                        messages=[{"role": "user", "content": prompt}],
+                        model=model_name,
+                        max_tokens=max_tokens,
+                        temperature=0.7
+                    )
+                    if response.choices and response.choices[0].message and response.choices[0].message.content:
+                        return self._sanitize_text(response.choices[0].message.content)
+                except Exception as g_err:
+                    logger.warning(f"Groq model {model_name} failed: {str(g_err)[:100]}")
+                    continue
+        
+        # Primary API: NVIDIA NIM
+        elif self.api_type == "nvidia":
+            if self.nvidia_api_key:
+                try:
+                    return self._call_nvidia_direct(prompt, self.nvidia_api_key, max_tokens)
+                except Exception as n_err:
+                    logger.warning(f"NVIDIA direct call failed: {str(n_err)[:100]}")
             
-            elif self.api_type == "nvidia":
-                response = self.api_client.chat.completions.create(
-                    messages=[{"role": "user", "content": prompt}],
-                    model=os.getenv("PPT_NVIDIA_MODEL", "meta/llama-3.3-70b-instruct"),
-                    max_tokens=max_tokens,
-                    temperature=0.7
-                )
-                return self._sanitize_text(response.choices[0].message.content)
-            
-            elif self.api_type == "cerebras":
+            if self.api_client:
+                try:
+                    response = self.api_client.chat.completions.create(
+                        messages=[{"role": "user", "content": prompt}],
+                        model=os.getenv("PPT_NVIDIA_MODEL", "meta/llama-3.2-11b-vision-instruct"),
+                        max_tokens=max_tokens,
+                        temperature=0.7
+                    )
+                    if response.choices and response.choices[0].message and response.choices[0].message.content:
+                        return self._sanitize_text(response.choices[0].message.content)
+                except Exception as n_err:
+                    logger.warning(f"NVIDIA SDK call failed: {str(n_err)[:100]}")
+
+        elif self.api_type == "cerebras" and self.api_client:
+            try:
                 response = self.api_client.chat.completions.create(
                     messages=[{"role": "user", "content": prompt}],
                     model=os.getenv("PPT_CEREBRAS_MODEL", "llama-3.3-70b"),
                     max_tokens=max_tokens,
                     temperature=0.7
                 )
-                return self._sanitize_text(response.choices[0].message.content)
-            
-            raise Exception(f"No matching API type found or LLM failed. Configured API: {self.api_type}")
-        except Exception as e:
-            logger.error(f"Primary LLM call ({self.api_type}) failed: {str(e)[:200]}")
-            
-            # Dynamic Fallback: if Groq failed and we have NVIDIA key, try NVIDIA
-            if self.api_type == "groq" and os.getenv("PPT_NVIDIA_API_KEY"):
-                try:
-                    logger.warning("Groq API failed. Falling back to NVIDIA NIM API...")
-                    from openai import OpenAI
-                    nvidia_client = OpenAI(
-                        base_url="https://integrate.api.nvidia.com/v1",
-                        api_key=os.getenv("PPT_NVIDIA_API_KEY")
-                    )
-                    response = nvidia_client.chat.completions.create(
-                        messages=[{"role": "user", "content": prompt}],
-                        model=os.getenv("PPT_NVIDIA_MODEL", "meta/llama-3.3-70b-instruct"),
-                        max_tokens=max_tokens,
-                        temperature=0.7
-                    )
+                if response.choices and response.choices[0].message and response.choices[0].message.content:
                     return self._sanitize_text(response.choices[0].message.content)
-                except Exception as n_err:
-                    logger.error(f"Fallback to NVIDIA NIM API failed: {str(n_err)[:200]}")
-                    
-            raise Exception(f"All LLM API calls failed. Original error: {str(e)[:200]}")
-    
+            except Exception as c_err:
+                logger.warning(f"Cerebras call failed: {str(c_err)[:100]}")
+
+        # Secondary Fallback: try NVIDIA NIM if Groq failed and we have NVIDIA key
+        nvidia_key = self.nvidia_api_key or os.getenv("PPT_NVIDIA_API_KEY") or os.getenv("NVIDIA_API_KEY")
+        if nvidia_key:
+            try:
+                logger.info("Falling back to NVIDIA NIM API...")
+                return self._call_nvidia_direct(prompt, nvidia_key, max_tokens)
+            except Exception as fb_err:
+                logger.warning(f"Fallback to NVIDIA NIM failed: {str(fb_err)[:100]}")
+
+        raise Exception("All LLM API calls failed or no valid API key configured.")
+
     # ========================================================================
     # REFINE SLIDE - Regenerate content for a specific slide
     # ========================================================================
@@ -530,22 +573,16 @@ Enables rapid development and deployment cycles."""
     async def refine_slide(self, slide_title: str, current_content: str, topic: str, style: str = "bullet") -> str:
         """
         Refine/regenerate content for a specific slide.
-        
-        Args:
-            slide_title: Title of the slide being refined
-            current_content: Current content (for context)
-            topic: Main presentation topic
-            style: 'paragraph' or 'bullet'
-            
-        Returns:
-            New refined content in the same style
         """
-        print(f"   Refining slide: {slide_title} (style: {style})")
+        safe_title = (slide_title or "Slide").strip()
+        safe_content = (current_content or "").strip()
+        safe_topic = (topic or "Topic").strip()
+        print(f"   Refining slide: {safe_title} (style: {style})")
         
         if style == "paragraph":
-            return await self._refine_paragraph(slide_title, current_content, topic)
+            return await self._refine_paragraph(safe_title, safe_content, safe_topic)
         else:
-            return await self._refine_bullets(slide_title, current_content, topic)
+            return await self._refine_bullets(safe_title, safe_content, safe_topic)
     
     async def _refine_paragraph(self, slide_title: str, current_content: str, topic: str) -> str:
         """Refine paragraph content"""
@@ -565,9 +602,12 @@ Write the improved paragraph:"""
 
         try:
             content = self._call_llm(prompt, 400)
-            return self._clean_paragraph(content)
-        except:
-            return current_content
+            cleaned = self._clean_paragraph(content)
+            if cleaned and len(cleaned) > 50:
+                return cleaned
+        except Exception:
+            pass
+        return current_content
     
     async def _refine_bullets(self, slide_title: str, current_content: str, topic: str) -> str:
         """Refine bullet point content - generate COMPLETELY NEW points"""
@@ -587,9 +627,9 @@ CRITICAL RULES:
 
 Write 8 fresh new bullet points:"""
 
-
         try:
             content = self._call_llm(prompt, 500)
-            return self._format_bullets(content)
-        except:
+            return self._format_bullets(content, slide_title, topic)
+        except Exception:
             return current_content
+

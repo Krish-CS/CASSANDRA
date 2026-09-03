@@ -11,6 +11,7 @@ Pillow>=10.0.0
 
 # AI Integration (for slide content generation)
 groq>=0.15.0
+openai>=1.0.0
 
 # Environment variables
 python-dotenv>=1.0.0

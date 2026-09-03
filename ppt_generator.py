@@ -4,6 +4,21 @@ Generates professional PowerPoint presentations using python-pptx
 With image generation support via Pollinations AI
 """
 
+import sys
+import os
+import io
+import requests
+import tempfile
+import logging
+from typing import Dict, List, Any, Tuple
+
+# Ensure stdout handles UTF-8 safely without UnicodeEncodeError
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 from pptx import Presentation
 from pptx.util import Inches, Pt, Emu
 from pptx.dml.color import RGBColor
@@ -11,12 +26,6 @@ from pptx.enum.text import PP_ALIGN, MSO_ANCHOR, MSO_AUTO_SIZE
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.oxml.ns import qn
 from pptx.oxml import parse_xml
-from typing import Dict, List, Any, Tuple
-import logging
-import os
-import io
-import requests
-import tempfile
 
 # Optional: Image generator (may not be available)
 try:
@@ -191,14 +200,16 @@ class PPTGenerator:
             print("   📝 Adding generated slides...")
             
             # Loop through ALL chapters from preview - add them AS-IS
-            for chapter in generated_content.get("chapters", []):
-                chapter_title = chapter.get("title", "")
+            chapters = (generated_content or {}).get("chapters", [])
+            for idx, chapter in enumerate(chapters, 1):
+                chapter_title = str(chapter.get("title") or f"Slide {idx}").strip()
+                sections = chapter.get("sections") or []
                 
-                for section in chapter.get("sections", []):
-                    section_title = section.get("title", "")
-                    content = section.get("content", "")
+                for section in sections:
+                    section_title = str(section.get("title") or chapter_title).strip()
+                    content = str(section.get("content") or "").strip()
                     
-                    if not content or len(content.strip()) < 20:
+                    if not content or len(content) < 15:
                         continue
                     
                     # Use section style if provided, otherwise infer from title
@@ -209,15 +220,15 @@ class PPTGenerator:
                         match_title = section_title if section_title else chapter_title
                         style, _, _, _ = self._get_config_for_section(match_title)
                     
-                    # Create slide title - use the chapter title
-                    slide_title = chapter_title.upper()
+                    # Create slide title - use the chapter title safely
+                    slide_title = (chapter_title or f"SLIDE {idx}").upper()
                     
                     # Add content slide (skip if style is 'none')
                     if style != 'none':
                         self._add_content_slide(prs, slide_title, content, style=style)
-                        print(f"   ✅ Slide added: {slide_title[:50]}...")
+                        print(f"   Slide added: {slide_title[:50]}...")
                     else:
-                        print(f"   ⏭️ Skipped content for: {slide_title} (style=none)")
+                        print(f"   Skipped content for: {slide_title} (style=none)")
 
             
             # Add Thank You Slide (extra slide at the end)
@@ -512,16 +523,16 @@ class PPTGenerator:
         random.shuffle(search_terms)
         
         try:
-            pexels_api_key = os.getenv('PEXELS_API_KEY', 'mVCnJKoyP7wAJQIJ3cPgaIpDwxdnZqjETR3gR2qPwySdVLV0D4VnzPxk')
+            pexels_api_key = os.getenv('PEXELS_API_KEY', 'DcOz5wUlomPoKtscbUJ0MJ7btjS3SXnDUJpCczd2DrlBzPeIRqKasWQ2')
             headers = {'Authorization': pexels_api_key}
             
-            for search_term in search_terms[:3]:  # Try up to 3 terms
-                print(f"   🔍 Searching Pexels for: {search_term}")
+            for search_term in search_terms[:2]:  # Try up to 2 terms
+                print(f"   Searching Pexels for: {search_term}")
                 response = requests.get(
                     'https://api.pexels.com/v1/search',
                     params={'query': search_term, 'per_page': 20, 'orientation': 'landscape'},
                     headers=headers,
-                    timeout=15
+                    timeout=5
                 )
                 
                 if response.status_code == 200:
@@ -534,12 +545,12 @@ class PPTGenerator:
                         
                         if image_url:
                             # Download the image
-                            img_response = requests.get(image_url, timeout=30)
+                            img_response = requests.get(image_url, timeout=10)
                             if img_response.status_code == 200:
                                 temp_file = tempfile.NamedTemporaryFile(suffix='.jpg', delete=False)
                                 temp_file.write(img_response.content)
                                 temp_file.close()
-                                print(f"   ✅ Thank You image fetched from Pexels ({search_term})")
+                                print(f"   Thank You image fetched from Pexels ({search_term})")
                                 return temp_file.name
         except Exception as e:
             print(f"   ⚠️ Could not fetch Thank You image: {e}")
@@ -633,8 +644,10 @@ class PPTGenerator:
     
     def _extract_bullet_points(self, content: str) -> List[str]:
         """Extract or create bullet points from content - complete sentences only"""
+        if not content:
+            return []
         # First try to split by newlines
-        lines = content.split('\n')
+        lines = str(content).split('\n')
         points = []
         
         for line in lines:
@@ -655,7 +668,7 @@ class PPTGenerator:
         # If no clear points from lines, split by sentences
         if len(points) < 2:
             # Split content into sentences
-            content_clean = content.replace('\n', ' ')
+            content_clean = str(content).replace('\n', ' ')
             sentences = []
             current = ""
             
@@ -704,8 +717,10 @@ class PPTGenerator:
     
     def _clean_for_slide(self, content: str) -> str:
         """Clean and shorten content for slide display - complete sentences only"""
+        if not content:
+            return ""
         # Remove extra whitespace
-        content = ' '.join(content.split())
+        content = ' '.join(str(content).split())
         
         # If content is short enough, just ensure it ends properly
         if len(content) <= 1000:
