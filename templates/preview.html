@@ -520,15 +520,34 @@
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 10px;
-            max-height: 420px;
+            max-height: 250px;
             overflow-y: auto;
-            padding-right: 5px;
-            -ms-overflow-style: none;  /* IE and Edge */
-            scrollbar-width: none;  /* Firefox */
+            overflow-x: hidden;
+            padding-right: 6px;
+            scrollbar-width: thin;
+            scrollbar-color: #ff9a9e rgba(255, 255, 255, 0.3);
         }
 
         .template-grid::-webkit-scrollbar {
-            display: none;  /* Safari and Chrome */
+            width: 7px;
+            display: block;
+        }
+
+        .template-grid::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.25);
+            border-radius: 10px;
+        }
+
+        .template-grid::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #ff9a9e 0%, #fecfef 50%, #ff9a9e 100%);
+            background-size: 100% 200%;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            animation: scrollGradient 3s ease infinite;
+        }
+
+        .template-grid::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, #ff8a8e 0%, #febfdf 50%, #ff8a8e 100%);
         }
 
         .template-thumb {

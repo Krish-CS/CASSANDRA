@@ -317,21 +317,42 @@ class PPTGenerator:
             sp.getparent().remove(sp)
         
         # ==================
-        # TITLE BOX (Top)
+        # DYNAMIC TITLE BOX (Top) - Automatically expands for long titles
         # ==================
+        title_text = str(title or "SLIDE").strip().upper()
+        title_len = len(title_text)
+
+        # Dynamic title sizing based on text length:
+        # Standard 16:9 slide is 13.333" wide, box width is 12.33"
+        if title_len <= 48:
+            # Single-line title
+            heading_size = 24
+            title_height = Inches(0.72)
+        elif title_len <= 85:
+            # Two-line title (e.g. 49-85 chars)
+            heading_size = 21
+            title_height = Inches(1.05)
+        elif title_len <= 130:
+            # Longer title
+            heading_size = 18
+            title_height = Inches(1.25)
+        else:
+            # Very long title
+            heading_size = 16
+            title_height = Inches(1.45)
+
         title_left = Inches(0.5)
         title_top = Inches(0.3)
         title_width = Inches(12.33)
-        title_height = Inches(0.7)
         
         # Title background - subtle rounded corners (matches preview)
+        # Dynamically sized to perfectly fit multi-line titles without overflow!
         title_bg = slide.shapes.add_shape(
             MSO_SHAPE.ROUNDED_RECTANGLE,
             title_left, title_top, title_width, title_height
         )
-        # Set subtle corner radius for title
         try:
-            title_bg.adjustments[0] = 0.1  # Subtle corners for smaller box
+            title_bg.adjustments[0] = 0.08  # Subtle clean corners
         except:
             pass
         title_bg.fill.solid()
@@ -341,36 +362,40 @@ class PPTGenerator:
             self._set_shape_transparency(title_bg, 20)
         title_bg.line.fill.background()
 
-        
-        # Title text
+        # Title text matching title_bg dimensions exactly
         title_box = slide.shapes.add_textbox(title_left, title_top, title_width, title_height)
         title_tf = title_box.text_frame
         title_tf.word_wrap = True
         title_tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
         title_tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        title_tf.margin_left = Inches(0.2)
+        title_tf.margin_right = Inches(0.2)
+        title_tf.margin_top = Inches(0.06)
+        title_tf.margin_bottom = Inches(0.06)
         
         title_p = title_tf.paragraphs[0]
-        title_p.text = title.upper()
+        title_p.text = title_text
         title_p.font.name = self.default_font
-        title_p.font.size = Pt(self.heading_font_size)
+        title_p.font.size = Pt(heading_size)
         title_p.font.bold = True
         title_p.font.color.rgb = self.text_color
         title_p.alignment = PP_ALIGN.CENTER
         
         # ==================
-        # CONTENT BOX (Below title with gap)
+        # DYNAMIC CONTENT BOX (Proportionally placed below title)
         # ==================
+        content_gap = Inches(0.18)
         content_left = Inches(0.5)
-        content_top = Inches(1.2)  # Gap after title (0.3 + 0.7 + 0.2 gap = 1.2)
+        content_top = title_top + title_height + content_gap
         content_width = Inches(12.33)
-        content_height = Inches(5.8)  # Rest of slide height
+        # Automatically adjusted height so slide bottom margin is preserved
+        content_height = Inches(7.5) - content_top - Inches(0.35)
         
         # Content background - subtle rounded corners (matches preview)
         content_bg = slide.shapes.add_shape(
             MSO_SHAPE.ROUNDED_RECTANGLE,
             content_left, content_top, content_width, content_height
         )
-        # Set subtle corner radius (10% of smaller dimension)
         try:
             content_bg.adjustments[0] = 0.02  # Very subtle corners
         except:
@@ -382,7 +407,6 @@ class PPTGenerator:
             self._set_shape_transparency(content_bg, 20)
         content_bg.line.fill.background()
 
-        
         # Content text
         content_box = slide.shapes.add_textbox(
             content_left + Inches(0.2),
@@ -407,8 +431,15 @@ class PPTGenerator:
             points = self._extract_bullet_points(content)
             count = len(points)
             
-            # Fixed font size 20pt for all bullet points
-            font_size = 20
+            # Dynamic bullet font size and spacing based on title height
+            if title_height > Inches(1.10):
+                font_size = 19
+                spacing = 1.25
+                space_margin = Pt(4)
+            else:
+                font_size = 20
+                spacing = 1.3
+                space_margin = Pt(6)
             
             for i, point in enumerate(points):
                 para = content_tf.paragraphs[0] if i == 0 else content_tf.add_paragraph()
@@ -419,9 +450,9 @@ class PPTGenerator:
                 para.font.size = Pt(font_size)
                 para.font.color.rgb = self.text_color
                 para.alignment = PP_ALIGN.LEFT
-                para.line_spacing = 1.3
-                para.space_before = Pt(6)
-                para.space_after = Pt(6)
+                para.line_spacing = spacing
+                para.space_before = space_margin
+                para.space_after = space_margin
         else:
 
             p = content_tf.paragraphs[0]
